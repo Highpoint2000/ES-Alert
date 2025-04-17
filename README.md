@@ -4,9 +4,9 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 ![image](https://github.com/user-attachments/assets/c5505af2-7b3b-4162-b68b-b474f593fd42)
 
-## Version 1.0 
+## Version 1.1 
 
-- Displays toast notifications and play sound when ES alarms are triggered
+- a direction map has been integrated
 
 ## Installation notes:
 
@@ -22,10 +22,15 @@ The following variables can be changed in the header of the es-alert.js
 
 	OMID               = '1234';          // Enter the valid FMLIST OMID here, e.g. '1234'
 	LAST_ALERT_MINUTES = 15;              // Enter the time in minutes for displaying the last message when loading the page (default is 15)
-	USE_LOCAL_TIME     = true;            // To display in UTC/GMT, set this value to true
-	PLAY_ALERT_SOUND   = true;            // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file to the ...\web\sound directory of the web server. The \sound folder still needs to be created.
+	USE_LOCAL_TIME     = false;            // To display in UTC/GMT, set this value to true (default: false)
+	PLAY_ALERT_SOUND   = false;            // If you want a sound to play when receiving a notification, set this variable to true (default: false). Also, copy the alert.mp3 file to the ...\web\sound directory of the web server. The \sound folder still needs to be created.
 
 ## Notes: 
 
-To use the plugin, you need an active FMLIST account. To receive ES Alert notifications via the plugin, you must enable ES email notifications in FMLIST. You must also enter your OMID in the plugin's configuration settings. After activating the plugin as an admin using the ES Alert button, it checks every minute for notifications for the location.
+To use the plugin, you need an active FMLIST account. To receive ES Alert notifications via the plugin, you must enable ES email notifications in FMLIST. You must also enter your OMID in the plugin's configuration settings. After activating the plugin as an admin using the ES Alert button, it checks every minute for notifications for the location. Long press of the ES Alert button after an alarm notification has been received opens the ES direction map.
 
+## History:
+
+### Version 1.0 
+
+- Displays toast notifications and play sound when ES alarms are triggered
