@@ -10,10 +10,10 @@
   ////////////////////////////////////////////////////////
 
 /* ==== Global constants ================================================= */
-const OMID               = '1234';   // put the FMLIST OMID here
-const LAST_ALERT_MINUTES = 15;    	 // accept alerts younger than this (minutes)
-const USE_LOCAL_TIME     = true;     // false → show UTC
-const PLAY_ALERT_SOUND   = true;     // requires /sound/alert.mp3
+const OMID               = '1234';   // Enter the valid FMLIST OMID here, e.g. '1234'
+const LAST_ALERT_MINUTES = 15;    	 // Enter the time in minutes for displaying the last message when loading the page (default is 15)
+const USE_LOCAL_TIME     = false;    // To display in UTC/GMT, set this value to true
+const PLAY_ALERT_SOUND   = false;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
 
 const PLUGIN_VERSION  = '1.0';
 const PLUGIN_PATH     = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
