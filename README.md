@@ -2,7 +2,8 @@
 
 This plugin displays toast notifications when ES alarms are triggered for the location via FMLIST
 
-![image](https://github.com/user-attachments/assets/c5505af2-7b3b-4162-b68b-b474f593fd42)
+![image](https://github.com/user-attachments/assets/dc137035-6a96-453f-b6e2-30818a277990)
+
 
 ## Version 1.1 
 
