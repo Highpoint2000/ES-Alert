@@ -250,7 +250,7 @@ function openAzimuthMap() {
         dirs = dirs.split(',').map(x => x.trim()).filter(x => x).map(Number);
       }
       lastAzimuths = dirs;
-	  lastAzimuths = [66, 77, 88];
+	  // lastAzimuths = [66, 77, 88];
 	  
 	  
       if (!ts) {
