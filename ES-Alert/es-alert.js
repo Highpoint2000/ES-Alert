@@ -1,231 +1,256 @@
-/* ===================================================================== *
- *  ES‑Alert‑Plugin  –  Version 1.0                                       *
- * ===================================================================== *
- *  – holt minütlich die JSON‑Datei zur OMID 8032                         *
- *  – zeigt Toasts & spielt optional einen Beep‑Alarm                     *
- *  – Audio wird erst nach erster Nutzer‑Interaktion freigeschaltet       *
- *  – prüft beim Start auf neue Plugin‑Version                            *
- * ===================================================================== */
+(() => {
+  ////////////////////////////////////////////////////////
+  ///                                                  ///
+  ///  ES ALERT SCRIPT FOR FM-DX-WEBSERVER (V1.0)      ///
+  ///                                                  ///
+  ///  by Highpoint          last update: 06.03.25     ///
+  ///                                                  ///
+  ///  https://github.com/Highpoint2000/ES-Alert       ///
+  ///                                                  ///
+  ////////////////////////////////////////////////////////
 
-/* ==== Plugin‑Konstanten ============================================= */
-const OMID            = '8032';            // nur die Zahl!
-const maxAgeMinutes   = 7200;              // 5 Tage in Minuten
-const useLocalTime    = true;              // true = Ortszeit, false = UTC
-const playAlertSound  = true;              // false = Ton unterdrücken
+/* ==== Global constants ================================================= */
+const OMID               = '1234';          // Enter the valid FMLIST OMID here, e.g. '1234'
+const LAST_ALERT_MINUTES = 15;              // Enter the time in minutes for displaying the last message when loading the page (default is 15)
+const USE_LOCAL_TIME     = true;            // To display in UTC/GMT, set this value to true
+const PLAY_ALERT_SOUND   = true;            // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file to the ...\web\sound directory of the web server. The \sound folder still needs to be created.
 
-const plugin_version  = '1.0';
-const plugin_path     = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
-const plugin_JSfile   = 'main/ES-Alert/es-alert.js';
-const plugin_name     = 'ES-Alert';
-const PluginUpdateKey = `${plugin_name}_lastUpdateNotification`;   // localStorage‑Key
+const PLUGIN_VERSION    = '1.0';
+const PLUGIN_PATH       = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
+const PLUGIN_JS_FILE    = 'main/ES-Alert/es-alert.js';
+const PLUGIN_NAME       = 'ES-Alert';
+const UPDATE_KEY        = `${PLUGIN_NAME}_lastUpdateNotification`;   // localStorage key
 
-/* ==== Sound‑Optionen ============================================== */
-const alertSoundUrl  = `${location.protocol}//${location.host}/sound/alarm.mp3`;
-const alertAudio     = new Audio(alertSoundUrl);
-let   audioUnlocked  = false;
+/* ==== Sound options ==================================================== */
+const alertSoundUrl = `${location.protocol}//${location.host}/sound/alert.mp3`;
+const alertAudio    = new Audio(alertSoundUrl);
 
+let audioUnlocked = false;                      // becomes true after first gesture
 function unlockAudio() {
-  if (audioUnlocked || !playAlertSound) return;
+  if (audioUnlocked || !PLAY_ALERT_SOUND) return;
   alertAudio.play()
     .then(() => { alertAudio.pause(); audioUnlocked = true; })
-    .catch(() => {/* Autoplay noch blockiert */});
+    .catch(() => { /* autoplay still blocked – will try again on next click */ });
 }
 window.addEventListener('click',  unlockAudio, { capture: true });
 window.addEventListener('keydown', unlockAudio, { capture: true });
 
-/* ==== Laufzeit‑Variablen =========================================== */
-let lastShownTimestamp = null;                               // zuletzt gezeigter Alert
-let AlertActive        = JSON.parse(localStorage.getItem('ESAlertActive') || 'true');
-let alertIntervalId    = null;                               // ID des setInterval‑Timers
-const corsAnywhereUrl  = 'https://cors-proxy.de:13128/';      // CORS‑Proxy
+/* ==== Runtime state ==================================================== */
+let lastShownTimestamp = null;                 // to avoid duplicate toasts
+let ALERT_ACTIVE       = JSON.parse(localStorage.getItem('ESAlertActive') || 'true');
+let alertIntervalId    = null;                 // setInterval handle
 
-/* ==== Hilfsfunktionen ============================================= */
+let isAdminLoggedIn      = false;              // “You are logged in as an administrator.”
+let isTuneLoggedIn       = false;              // “You are logged in and can control the receiver.”
+let isTuneAuthenticated  = false;              // true if either admin or tune
+const CORS_PROXY_URL     = 'https://cors-proxy.de:13128/';
+
+/* ===================================================================== *
+ *  Admin / Tune mode detection                                          *
+ * ===================================================================== */
+function checkAdminMode() {
+  const txt = document.body.textContent || document.body.innerText;
+  isAdminLoggedIn = txt.includes('You are logged in as an administrator.') ||
+                    txt.includes('You are logged in as an adminstrator.');
+  isTuneLoggedIn  = txt.includes('You are logged in and can control the receiver.');
+
+  if (isAdminLoggedIn) {
+    console.log(`${PLUGIN_NAME}: admin mode detected – authentication ok.`);
+    isTuneAuthenticated = true;
+  } else if (isTuneLoggedIn) {
+    console.log(`${PLUGIN_NAME}: tune mode detected – authentication ok.`);
+    isTuneAuthenticated = true;
+  } else {
+    console.log(`${PLUGIN_NAME}: user is not authenticated as admin/tune.`);
+  }
+}
+checkAdminMode();
+
+/* ===================================================================== *
+ *  Version check (only for authenticated users)                         *
+ * ===================================================================== */
+function shouldShowUpdateToast() {
+  const last  = parseInt(localStorage.getItem(UPDATE_KEY) || '0', 10);
+  const now   = Date.now();
+  const DAY   = 86_400_000;                  // 24 h
+  if (now - last > DAY) {
+    localStorage.setItem(UPDATE_KEY, now.toString());
+    return true;
+  }
+  return false;
+}
+
+function compareVersions(a, b) {             // 1.3a < 1.3 < 1.3b < 1.4
+  const parts = v => v.split(/(\d+|[a-z]+)/i).filter(Boolean)
+                      .map(p => (isNaN(p) ? p : parseInt(p, 10)));
+  const A = parts(a), B = parts(b);
+  for (let i = 0; i < Math.max(A.length, B.length); i++) {
+    const x = A[i] ?? 0, y = B[i] ?? 0;
+    if (x === y) continue;
+    if (typeof x === 'number' && typeof y === 'number') return x > y ? 1 : -1;
+    if (typeof x === 'string' && typeof y === 'string') return x > y ? 1 : -1;
+    return typeof x === 'number' ? -1 : 1;   // numeric < alphabetic
+  }
+  return 0;
+}
+
+function checkPluginVersion() {
+  if (!isTuneAuthenticated) return;          // only admins/tune users
+  fetch(`${PLUGIN_PATH}${PLUGIN_JS_FILE}`)
+    .then(r => r.text())
+    .then(src => {
+      const m = src.match(/const\s+PLUGIN_VERSION\s*=\s*'([\d.]+[a-z]*)?';/i);
+      if (!m) return;
+      const remoteVer = m[1] || '0';
+      const cmp = compareVersions(PLUGIN_VERSION, remoteVer);
+      if (cmp === -1 && shouldShowUpdateToast()) {
+        console.log(`${PLUGIN_NAME}: update available ${PLUGIN_VERSION} → ${remoteVer}`);
+        sendToast(
+          'warning',
+          PLUGIN_NAME,
+          `Update available:<br>${PLUGIN_VERSION} → ${remoteVer}`,
+          false,
+          false
+        );
+      }
+    })
+    .catch(e => console.error(`${PLUGIN_NAME}: version check failed:`, e));
+}
+setTimeout(checkPluginVersion, 2500);
+
+/* ===================================================================== *
+ *  Helper functions                                                     *
+ * ===================================================================== */
 function startAlertTimer() {
   if (alertIntervalId === null) {
-    fetchOmidData();                                         // sofortiger Abruf
+    fetchOmidData();                                      // immediate fetch
     alertIntervalId = setInterval(fetchOmidData, 60_000);
-    console.log(`${plugin_name}: Timer gestartet.`);
   }
 }
 function stopAlertTimer() {
   if (alertIntervalId !== null) {
     clearInterval(alertIntervalId);
     alertIntervalId = null;
-    console.log(`${plugin_name}: Timer gestoppt.`);
   }
 }
-function formatTimestamp(rfc) {
+function fmtTS(rfc) {
   if (!rfc) return '';
   const d = new Date(rfc);
-  return useLocalTime ? d.toLocaleString() : d.toUTCString();
+  return USE_LOCAL_TIME ? d.toLocaleString() : d.toUTCString();
 }
 
-/* ------------------------------------------------------------------ *
- *  VERSION‑CHECK                                                     *
- * ------------------------------------------------------------------ */
-function shouldShowNotification() {
-  const last = parseInt(localStorage.getItem(PluginUpdateKey) || '0', 10);
-  const now  = Date.now();
-  const ONE_DAY = 24 * 60 * 60 * 1000;
-  if (now - last > ONE_DAY) {
-    localStorage.setItem(PluginUpdateKey, now.toString());
-    return true;
-  }
-  return false;
-}
-
-// vergleicht numerische & alphanumerische Versionen (z. B. 1.2a < 1.2b < 1.3)
-function compareVersions(local, remote) {
-  const parse = v => v.split(/(\d+|[a-z]+)/i).filter(Boolean)
-                      .map(p => (isNaN(p) ? p : parseInt(p, 10)));
-  const a = parse(local), b = parse(remote);
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const x = a[i] ?? 0, y = b[i] ?? 0;
-    if (x === y) continue;
-    if (typeof x === 'number' && typeof y === 'number') return x > y ? 1 : -1;
-    if (typeof x === 'string' && typeof y === 'string') return x > y ? 1 : -1;
-    return typeof x === 'number' ? -1 : 1;                 // Zahl < Buchstabe
-  }
-  return 0;
-}
-
-// lädt externes Skript, extrahiert plugin_version & vergleicht
-function checkplugin_version() {
-  fetch(`${plugin_path}${plugin_JSfile}`)
-    .then(r => r.text())
-    .then(src => {
-      const m = src.match(/const\s+plugin_version\s*=\s*'([\d.]+[a-z]*)?';/i);
-      if (!m) {
-        console.error(`${plugin_name}: Plugin version not found im externen Skript.`);
-        return;
-      }
-      const extVer = m[1] || '0';
-      const cmp    = compareVersions(plugin_version, extVer);
-
-      if (cmp ===  1) {
-        console.log(`${plugin_name}: lokale Version (${plugin_version}) ist neuer als extern.`);
-      } else if (cmp === -1) {
-        if (shouldShowNotification()) {
-          console.log(`${plugin_name}: Update verfügbar: ${plugin_version} → ${extVer}`);
-          sendToast('warning important', plugin_name,
-            `Update available:<br>${plugin_version} → ${extVer}`, false, false);
-        }
-      } else {
-        console.log(`${plugin_name}: Version aktuell (${plugin_version}).`);
-      }
-    })
-    .catch(e => console.error(`${plugin_name}: Fehler beim Laden der Versionsinfo:`, e));
-}
-
-/* ---- JSON‑Abruf + Toast‑/Sound‑Logik ------------------------------ */
+/* ===================================================================== *
+ *  Fetch ES‑alert JSON + toast / sound                                  *
+ * ===================================================================== */
 async function fetchOmidData() {
-  const apiUrl     = `https://www.fmlist.org/esapi/es${OMID}.json`;
-  const requestUrl = `${corsAnywhereUrl}${apiUrl}`;
-
+  const url = `${CORS_PROXY_URL}https://www.fmlist.org/esapi/es${OMID}.json`;
   try {
-    const r = await fetch(requestUrl);
+    const r = await fetch(url);
 
     if (r.status === 404) {
-      sendToast('warning important', 'ES Alert',
-                'Keine Information für die eingestellte OMID vorhanden.', false, false);
+      sendToast('warning', 'ES Alert', 'No information available for the configured OMID.', false, false);
       return;
     }
     if (!r.ok) {
-      sendToast('error important', 'ES Alert',
-                `Fehler beim Abruf: ${r.status} ${r.statusText}`, false, false);
+      sendToast('error important', 'ES Alert', `HTTP error: ${r.status} ${r.statusText}`, false, false);
       return;
     }
 
     const { esalert = {} } = await r.json();
     const { esdatetime: ts, directions = [] } = esalert;
-
     if (!ts) {
-      sendToast('error important', 'ES Alert',
-                'Ungültiger Alert‑Datensatz.', false, false);
+      sendToast('error important', 'ES Alert', 'Invalid alert data set.', false, false);
       return;
     }
 
-    const diffMin = (Date.now() - Date.parse(ts)) / 60000;
-    if (diffMin <= maxAgeMinutes && ts !== lastShownTimestamp) {
-      const tsStr = formatTimestamp(ts);
-      sendToast('warning important', 'ES Alert',
-        `The following directions might work: ${directions.join(' ')}. `
-        + `This Alert has been generated at ${tsStr}`,
-        true, false);                                      // wichtiger Toast
+    const ageMin = (Date.now() - Date.parse(ts)) / 60000;
+    if (ageMin <= LAST_ALERT_MINUTES && ts !== lastShownTimestamp) {
+      const tStr = fmtTS(ts);
+      sendToast(
+        'warning important',
+        'ES Alert',
+        `The following directions might work: ${directions.join(' ')}. `+`This Alert has been generated at ${tStr}`,
+        true,
+        false
+      );
 
-      if (playAlertSound && audioUnlocked) {
+      if (PLAY_ALERT_SOUND && audioUnlocked) {
         alertAudio.currentTime = 0;
         alertAudio.play().catch(() => {});
       }
       lastShownTimestamp = ts;
     }
 
-  } catch (err) {
-    sendToast('error important', 'ES Alert',
-              `Netzwerk‑ oder Parse‑Fehler: ${err.message}`, false, false);
+  } catch (e) {
+    sendToast('error', 'ES Alert', `Network or parse error: ${e.message}`, false, false);
   }
 }
 
-/* ==== Button zum Ein/Aus‑Schalten der Alerts ====================== */
-(function createAlertToggle(buttonId) {
+/* ===================================================================== *
+ *  Toggle button (only admin/tune may switch)                           *
+ * ===================================================================== */
+(function createToggle(id) {
   (function waitForPanel() {
-    const maxWait = 10_000;
-    let   ready   = false;
-
     const obs = new MutationObserver(() => {
       if (typeof addIconToPluginPanel === 'function') {
-        obs.disconnect(); ready = true;
+        obs.disconnect();
 
-        addIconToPluginPanel(
-          buttonId, 'ES Alert', 'solid', 'bell',
-          `Plugin Version: ${plugin_version}`
-        );
+        addIconToPluginPanel(id, 'ES Alert', 'solid', 'bell', `Plugin Version: ${PLUGIN_VERSION}`);
 
         const btnObs = new MutationObserver(() => {
-          const $btn = $(`#${buttonId}`);
-          if ($btn.length) {
-            btnObs.disconnect();
-            $btn.addClass('hide-phone bg-color-2');
-            if (AlertActive) { $btn.addClass('active'); startAlertTimer(); }
+          const $btn = $(`#${id}`);
+          if (!$btn.length) return;
 
-            let isLong = false, t;
-            $btn.on('mousedown', () => { isLong = false; t = setTimeout(() => isLong = true, 300); });
-            $btn.on('mouseup', () => {
-              clearTimeout(t);
-              if (!isLong) {
-                AlertActive = !AlertActive;
-                localStorage.setItem('ESAlertActive', JSON.stringify(AlertActive));
-                lastShownTimestamp = null;
+          btnObs.disconnect();
+          $btn.addClass('hide-phone bg-color-2');
+          if (ALERT_ACTIVE) { $btn.addClass('active'); startAlertTimer(); }
 
-                if (AlertActive) {
-                  $btn.addClass('active');
-                  unlockAudio();
-                  startAlertTimer();
-                } else {
-                  $btn.removeClass('active');
-                  stopAlertTimer();
-                }
-              }
-            });
-            $btn.on('mouseleave', () => clearTimeout(t));
-          }
+          let isLong = false, t;
+          $btn.on('mousedown', () => { isLong = false; t = setTimeout(() => isLong = true, 300); });
+
+          $btn.on('mouseup', () => {
+            clearTimeout(t);
+            if (isLong) return;
+
+            // --- Only authenticated users may toggle -----------------
+            if (!isTuneAuthenticated) {
+              sendToast(
+                'warning',
+                'ES Alert',
+                'You must be authenticated as admin to use this feature!',
+                false,
+                false
+              );
+              return;
+            }
+
+            ALERT_ACTIVE = !ALERT_ACTIVE;
+            localStorage.setItem('ESAlertActive', JSON.stringify(ALERT_ACTIVE));
+            lastShownTimestamp = null;
+
+            if (ALERT_ACTIVE) {
+              $btn.addClass('active');
+              unlockAudio();
+              startAlertTimer();
+            } else {
+              $btn.removeClass('active');
+              stopAlertTimer();
+            }
+          });
+
+          $btn.on('mouseleave', () => clearTimeout(t));
         });
         btnObs.observe(document.body, { childList: true, subtree: true });
       }
     });
     obs.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => {
-      obs.disconnect();
-      if (!ready) console.error(`${plugin_name}: addIconToPluginPanel nicht gefunden.`);
-    }, maxWait);
   })();
 
+  /* Styles for hover / active state */
   const css = `
-    #${buttonId}:hover { color: var(--color-5); filter: brightness(120%); }
-    #${buttonId}.active { background-color: var(--color-2) !important; filter: brightness(120%); }
+    #${id}:hover { color: var(--color-5); filter: brightness(120%); }
+    #${id}.active { background-color: var(--color-2) !important; filter: brightness(120%); }
   `;
   $('<style>').prop('type', 'text/css').html(css).appendTo('head');
 })('ES-ALERT-on-off');
-
-/* ==== Plugin‑Version sofort prüfen (nach kleinem Delay) ============ */
-setTimeout(checkplugin_version, 2500);
+})();
