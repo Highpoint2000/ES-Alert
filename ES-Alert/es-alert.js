@@ -1,22 +1,29 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM‑DX WEBSERVER (V1.1)      ///
+  ///  ES ALERT SCRIPT FOR FM‑DX WEBSERVER (V1.2)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 17.04.2025   ///
+  ///  by Highpoint           last update 24.04.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
-  /* ==== Global constants ================================================= */
-  const OMID               = '1234';   // Enter the valid FMLIST OMID here, e.g. '1234'
+  /* ==== ES Alert Options ================================================= */
+  const OMID               = '8032';   // Enter the valid FMLIST OMID here, e.g. '1234'
   const LAST_ALERT_MINUTES = 15;       // Enter the time in minutes for displaying the last message when loading the page (default is 15)
-  const USE_LOCAL_TIME     = false;    // To display in UTC/GMT, set this value to true
-  const PLAY_ALERT_SOUND   = false;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
+  const USE_LOCAL_TIME     = true;    // To display in UTC/GMT, set this value to true
+  const PLAY_ALERT_SOUND   = true;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
+   /* ==== ES Status Display Options  =================================================== */
+  const ES_STATUS_ENABLED = true;     // true = display on, false = display off
+  const SELECTED_REGION = 'EU';       // Options: 'EU', 'NA', 'AU'
 
-  const PLUGIN_VERSION  = '1.1';
+  /* ==== Global variables  =================================================== */
+
+  const PLUGIN_VERSION  = '1.2';
   const PLUGIN_PATH     = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
+  const API_URL 		= 'https://fmdx.org/includes/tools/get_muf.php';
+  const CORS_PROXY_URL  = 'https://cors-proxy.de:13128/';
   const PLUGIN_JS_FILE  = 'main/ES-Alert/es-alert.js';
   const PLUGIN_NAME     = 'ES-Alert';
   const UPDATE_KEY      = `${PLUGIN_NAME}_lastUpdateNotification`;
@@ -40,11 +47,16 @@
   let alertIntervalId    = null;
   let lastAzimuths       = [];
 
-  const CORS_PROXY_URL   = 'https://cors-proxy.de:13128/';
   let isAdminLoggedIn = false;
   let isTuneLoggedIn  = false;
   let isAuthenticated = false;
   let azimuthMapWindow = null;
+  
+  const REGION_KEYS = {
+	EU: 'europe',
+	NA: 'north_america',
+	AU: 'australia'
+  };
   
   /* =================================================================== *
    *  Admin / tune mode detection                                        *
@@ -341,5 +353,94 @@ function openAzimuthMap() {
                       filter: brightness(120%); }
     `).appendTo('head');
   })('ES-ALERT-on-off');
+
+/* =================================================================== *
+ *   Injects a toggle switch into the dashboard side-settings          *
+ * =================================================================== */
+  
+function addESStatusToggle() {
+  const container = document.querySelector('.panel-full.flex-center.no-bg.m-0');
+  if (!container) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'form-group';
+  wrapper.innerHTML = `
+    <div class="switch flex-container flex-phone flex-phone-column flex-phone-center">
+      <input type="checkbox" id="es-status-toggle" />
+      <label for="es-status-toggle"></label>
+      <span class="text-smaller text-uppercase text-bold color-4 p-10">ES Status</span>
+    </div>
+  `;
+  container.after(wrapper);
+
+  const checkbox = document.getElementById('es-status-toggle');
+  checkbox.checked = ES_STATUS_ENABLED;
+  checkbox.addEventListener('change', () => {
+    ES_STATUS_ENABLED = checkbox.checked;
+    localStorage.setItem('ES_STATUS_ENABLED', ES_STATUS_ENABLED.toString());
+    // show or hide the panel immediately
+    const panel = document.getElementById('muf-panel');
+    if (panel) panel.style.display = ES_STATUS_ENABLED ? '' : 'none';
+  });
+}  
+
+
+/* =================================================================== *
+ *   Creates the panel and inserts it into the dashboard               *
+ * =================================================================== */
+
+function createPanel() {
+  const label = SELECTED_REGION;
+  const panelHtml = `
+    <div id="muf-panel" class="hide-phone panel panel-small" style="padding:0px 8px;">
+      <h3 style="margin:0 0 1px 0; padding:0;">Sporadic E</h3>
+      <table style="margin:0; padding:0; border-collapse: collapse;">
+        <tbody>
+          <tr>
+            <td class="text-bold" style="padding:0 2px 0 0; white-space:nowrap; position:relative; top:-5px;">${label}</td>
+            <td id="muf-${label.toLowerCase()}" style="padding:0; margin:0; position:relative; top:-5px;">Loading…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+  const container = document.querySelector('.dashboard-panel .panel-100-real .dashboard-panel-plugin-content');
+  if (container) {
+    container.insertAdjacentHTML('afterend', panelHtml);
+  } else {
+    document.body.insertAdjacentHTML('beforeend', panelHtml);
+  }
+}
+
+/* =================================================================== *
+ *   Fetches MUF data via the CORS proxy and updates the panel         *
+ * =================================================================== */
+
+async function updateMUF() {
+  const label = SELECTED_REGION.toLowerCase();
+  const cell = document.getElementById(`muf-${label}`);
+  if (!cell) return;
+  try {
+    const url = `${CORS_PROXY_URL}${API_URL}?cb=${Date.now()}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const regionData = data[REGION_KEYS[SELECTED_REGION]];
+    if (regionData.max_frequency === 'No data') {
+      cell.innerHTML = `<span style="font-size:0.8em; color:red; position:relative; top:-1px;">❌</span>`;
+    } else {
+      cell.textContent = `${regionData.max_frequency} MHz (${regionData.last_log})`;
+    }
+  } catch (err) {
+    console.warn('MUF request failed:', err);
+    cell.textContent = 'Error';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!ES_STATUS_ENABLED) return;
+  createPanel();
+  updateMUF();
+  setInterval(updateMUF, 1 * 60 * 1000);
+});
 
 })();
