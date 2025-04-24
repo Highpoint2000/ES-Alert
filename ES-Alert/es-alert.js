@@ -10,13 +10,13 @@
   ////////////////////////////////////////////////////////
 
   /* ==== ES Alert Options ================================================= */
-  const OMID               = '1234';   // Enter the valid FMLIST OMID here, e.g. '1234'
-  const LAST_ALERT_MINUTES = 15;       // Enter the time in minutes for displaying the last message when loading the page (default is 15)
-  const USE_LOCAL_TIME     = true;    // To display in UTC/GMT, set this value to true
-  const PLAY_ALERT_SOUND   = true;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
+  const OMID               = '1234';   	// Enter the valid FMLIST OMID here, e.g. '1234'
+  const LAST_ALERT_MINUTES = 15;       	// Enter the time in minutes for displaying the last message when loading the page (default is 15)
+  const USE_LOCAL_TIME     = true;    	// To display in UTC/GMT, set this value to true
+  const PLAY_ALERT_SOUND   = true;    	// If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
    /* ==== ES Status Display Options  =================================================== */
-  const ES_STATUS_ENABLED = true;     // true = display on, false = display off
-  const SELECTED_REGION = 'EU';       // Options: 'EU', 'NA', 'AU'
+  const ES_STATUS_ENABLED = true;     	// true = display on, false = display off
+  const SELECTED_REGION = 'EU';       	// Options: 'EU', 'NA', 'AU'
 
   /* ==== Global variables  =================================================== */
 
@@ -428,7 +428,7 @@ async function updateMUF() {
     if (regionData.max_frequency === 'No data') {
       cell.innerHTML = `<span style="font-size:0.8em; color:red; position:relative; top:-1px;">❌</span>`;
     } else {
-      cell.textContent = `${regionData.max_frequency} MHz (${regionData.last_log})`;
+      cell.textContent = `${regionData.max_frequency} MHz`;
     }
   } catch (err) {
     console.warn('MUF request failed:', err);
