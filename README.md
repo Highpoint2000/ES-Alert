@@ -35,9 +35,12 @@ The following variables can be changed in the header of the es-alert.js:
 
 ## Notes: 
 
-To use the plugin, you need an active FMLIST account. To receive ES Alert notifications via the plugin, you must enable ES email notifications in FMLIST. You must also enter your OMID in the plugin's configuration settings. After activating the plugin as an admin using the ES Alert button, it checks every minute for notifications for the location. Long press of the ES Alert button after an alarm notification has been received opens the ES direction map. - Additionally, a Sporadic E (ES) status indicator can be added to the menu bar, displaying the MUF value. Simply set the corresponding variable in the script, as well as for the selected region (NA, EU, or AU).
-
+To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. Additionally, a sporadic E (ES) status indicator is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). The MUF display can be deactivated using a switch in the web server options.
 ## History:
+
+### Version 1.3 
+
+- Sporadic E (ES) status indicator added
 
 ### Version 1.1 
 
