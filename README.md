@@ -8,9 +8,10 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 
 
-## Version 1.2 
+## Version 1.3 
 
-- Sporadic E (ES) status indicator added
+- Added message duration for mouseover
+- Switch to quickly disable the MUF display implemented in the web server settings
 
 ## Installation notes:
 
@@ -39,7 +40,7 @@ To use the plugin, you need an active FMLIST account. To receive ES alarm notifi
 
 ## History:
 
-### Version 1.3 
+### Version 1.2 
 
 - Sporadic E (ES) status indicator added
 
