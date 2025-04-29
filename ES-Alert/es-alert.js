@@ -1,32 +1,32 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM‑DX WEBSERVER (V1.2)      ///
+  ///  ES ALERT SCRIPT FOR FM‑DX WEBSERVER (V1.3)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 24.04.2025   ///
+  ///  by Highpoint           last update 29.04.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
   /* ==== ES Alert Options ================================================= */
-  const OMID               = '1234';   	// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               = '';      	// Enter the valid FMLIST OMID here, e.g. '1234'
   const LAST_ALERT_MINUTES = 15;       	// Enter the time in minutes for displaying the last message when loading the page (default is 15)
   const USE_LOCAL_TIME     = true;    	// To display in UTC/GMT, set this value to true
   const PLAY_ALERT_SOUND   = true;    	// If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
    /* ==== ES Status Display Options  =================================================== */
-  const ES_STATUS_ENABLED = true;     	// true = display on, false = display off
   const SELECTED_REGION = 'EU';       	// Options: 'EU', 'NA', 'AU'
 
   /* ==== Global variables  =================================================== */
 
-  const PLUGIN_VERSION  = '1.2';
+  const PLUGIN_VERSION  = '1.3';
   const PLUGIN_PATH     = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
   const API_URL 		= 'https://fmdx.org/includes/tools/get_muf.php';
   const CORS_PROXY_URL  = 'https://cors-proxy.de:13128/';
   const PLUGIN_JS_FILE  = 'main/ES-Alert/es-alert.js';
   const PLUGIN_NAME     = 'ES-Alert';
   const UPDATE_KEY      = `${PLUGIN_NAME}_lastUpdateNotification`;
+  const ES_STATUS_ENABLED = true;     	
 
   /* ==== Sound setup =================================================== */
   const alertSoundUrl = `${location.protocol}//${location.host}/sound/alert.mp3`;
@@ -238,7 +238,8 @@ function openAzimuthMap() {
    * =================================================================== */
   async function fetchOmidData() {
     const cb = Date.now();
-    const url = `${CORS_PROXY_URL}https://www.fmlist.org/esapi/es${OMID}.json?cb=${cb}`;
+    const domain = window.location.host;
+	const url = `${CORS_PROXY_URL}https://www.fmlist.org/esapi/es${OMID}.json?cb=${cb}&domain=${domain}`;
     try {
       const r = await fetch(url);
       if (r.status === 404) {
@@ -373,22 +374,11 @@ function addESStatusToggle() {
   `;
   container.after(wrapper);
 
-  const checkbox = document.getElementById('es-status-toggle');
-  checkbox.checked = ES_STATUS_ENABLED;
-  checkbox.addEventListener('change', () => {
-    ES_STATUS_ENABLED = checkbox.checked;
-    localStorage.setItem('ES_STATUS_ENABLED', ES_STATUS_ENABLED.toString());
-    // show or hide the panel immediately
-    const panel = document.getElementById('muf-panel');
-    if (panel) panel.style.display = ES_STATUS_ENABLED ? '' : 'none';
-  });
 }  
-
 
 /* =================================================================== *
  *   Creates the panel and inserts it into the dashboard               *
  * =================================================================== */
-
 function createPanel() {
   const label = SELECTED_REGION;
   const panelHtml = `
@@ -397,8 +387,15 @@ function createPanel() {
       <table style="margin:0; padding:0; border-collapse: collapse;">
         <tbody>
           <tr>
-            <td class="text-bold" style="padding:0 2px 0 0; white-space:nowrap; position:relative; top:-5px;">${label}</td>
-            <td id="muf-${label.toLowerCase()}" style="padding:0; margin:0; position:relative; top:-5px;">Loading…</td>
+            <td class="text-bold"
+                style="padding:0 2px 0 0; white-space:nowrap; position:relative; top:-5px;">
+              ${label}
+            </td>
+            <td id="muf-${label.toLowerCase()}"
+                style="padding:0 0 0 3px; margin:0; position:relative; top:-5px; font-size:0.8em;"
+                title="Last updated: –">
+              Loading…
+            </td>
           </tr>
         </tbody>
       </table>
@@ -415,32 +412,113 @@ function createPanel() {
 /* =================================================================== *
  *   Fetches MUF data via the CORS proxy and updates the panel         *
  * =================================================================== */
-
 async function updateMUF() {
   const label = SELECTED_REGION.toLowerCase();
   const cell = document.getElementById(`muf-${label}`);
   if (!cell) return;
+
   try {
-    const url = `${CORS_PROXY_URL}${API_URL}?cb=${Date.now()}`;
+    // include your own host:port
+    const domain = window.location.host; 
+    const url = `${CORS_PROXY_URL}${API_URL}?cb=${Date.now()}&domain=${domain}`;
+
     const resp = await fetch(url);
     const data = await resp.json();
     const regionData = data[REGION_KEYS[SELECTED_REGION]];
+	
+	regionData.max = '104';
+	
+    // Update MUF display
     if (regionData.max_frequency === 'No data') {
       cell.innerHTML = `<span style="font-size:0.8em; color:red; position:relative; top:-1px;">❌</span>`;
     } else {
-      cell.textContent = `${regionData.max_frequency} MHz`;
+      cell.textContent = `up to ${regionData.max_frequency} MHz`;
+    }
+
+    // Set tooltip to show last_log time
+    const lastLog = regionData.last_log;
+    if (lastLog && lastLog !== 'No data') {
+      cell.setAttribute('title', `Last updated: ${lastLog}`);
+    } else {
+      cell.removeAttribute('title');
     }
   } catch (err) {
     console.warn('MUF request failed:', err);
     cell.textContent = 'Error';
+    cell.removeAttribute('title');
   }
 }
 
+/* =================================================================== *
+ *   Initializes Dashboard Extensions for Sporadic E MUF Panel         *
+ * =================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-  if (!ES_STATUS_ENABLED) return;
+
+  // 1) Find existing “Manual decimals” form-group
+  const manualGroup = document
+    .getElementById('extended-frequency-range')
+    .closest('.form-group');
+
+  // 2) Create a new form-group for the “Sporadic E” toggle
+  const sporadicGroup = document.createElement('div');
+  sporadicGroup.className = 'form-group';
+  sporadicGroup.innerHTML = `
+    <div class="switch flex-container flex-phone flex-phone-column flex-phone-center">
+      <input
+        type="checkbox"
+        tabindex="0"
+        id="toggle-sporadic-e"
+        aria-label="Sporadic E"
+      />
+      <label for="toggle-sporadic-e"></label>
+      <span class="text-smaller text-uppercase text-bold color-4 p-10">
+        HIDE SPORADIC E
+      </span>
+    </div>
+  `;
+  manualGroup.parentNode.insertBefore(sporadicGroup, manualGroup);
+
+  // 3) Create the MUF panel
   createPanel();
-  updateMUF();
-  setInterval(updateMUF, 1 * 60 * 1000);
+
+  // 4) Grab references
+  const panel       = document.getElementById('muf-panel');
+  const toggle      = document.getElementById('toggle-sporadic-e');
+  let mufInterval;  // will hold our interval ID
+
+  // 5) Load last saved state (default: unchecked = shown)
+  //    stored value 'true' now means “hide”  
+  const hideOnChecked = localStorage.getItem('sporadicEEnabled') === 'true';
+  toggle.checked = hideOnChecked;
+  panel.style.display = hideOnChecked ? 'none' : '';
+
+  // 6) Helper to start polling
+  function startPolling() {
+    updateMUF();
+    mufInterval = setInterval(updateMUF, 60 * 1000);
+  }
+
+  // 7) Helper to stop polling
+  function stopPolling() {
+    clearInterval(mufInterval);
+  }
+
+  // 8) Begin polling only if panel is visible
+  if (!hideOnChecked) startPolling();
+
+  // 9) On toggle change: hide/show panel and start/stop polling
+  toggle.addEventListener('change', () => {
+    const checked = toggle.checked;
+    // checked = hide panel
+    panel.style.display = checked ? 'none' : '';
+    localStorage.setItem('sporadicEEnabled', checked);
+
+    if (checked) {
+      stopPolling();
+    } else {
+      startPolling();
+    }
+  });
 });
 
 })();
