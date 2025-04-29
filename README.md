@@ -31,12 +31,12 @@ The following variables can be changed in the header of the es-alert.js:
     const PLAY_ALERT_SOUND   = true;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
     
     /// ES Status Display Options ///
-    const ES_STATUS_ENABLED = true;     // true = display on, false = display off
     const SELECTED_REGION = 'EU';       // Options: 'EU', 'NA', 'AU'
 
 ## Notes: 
 
-To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. Additionally, a sporadic E (ES) status indicator is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). The MUF display can be deactivated using a switch in the web server options.
+To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. – Additionally, a status indicator for sporadic E (ES) is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). Hovering over the indicator informs you when the message was published. The MUF display can be deactivated using a switch in the web server options.
+
 ## History:
 
 ### Version 1.3 
