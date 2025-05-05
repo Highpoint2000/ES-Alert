@@ -10,7 +10,7 @@
   ////////////////////////////////////////////////////////
 
   /* ==== ES Alert Options ================================================= */
-  const OMID               = '8032';       	// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               = '1234';       	// Enter the valid FMLIST OMID here, e.g. '1234'
   const LAST_ALERT_MINUTES = 15;           	// Minutes to look back when page loads (default is 15)
   const LAST_TICKER_MINUTES = 15;          	// Minutes to show last ticker logs (default is 15)
   const NUMBER_TICKER_LOGS = 5;				// Number of ticker logs until repetition (default is 5) 
