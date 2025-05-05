@@ -10,10 +10,10 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 
 
-## Version 1.3 
+## Version 1.4 
 
-- Added message duration for mouseover
-- Switch to quickly disable the MUF display implemented in the web server settings
+- Added ES Ticker
+- Switch to quickly disable the ES Ticker implemented in the web server settings
 
 ## Installation notes:
 
@@ -27,9 +27,11 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 The following variables can be changed in the header of the es-alert.js:
 
-    /// ES Alert Options ///
+    /// ES Alert and Ticker Options ///
     const OMID               = '1234';   // Enter the valid FMLIST OMID here, e.g. '1234'
     const LAST_ALERT_MINUTES = 15;       // Enter the time in minutes for displaying the last message when loading the page (default is 15)
+	const LAST_TICKER_MINUTES = 15;      // Minutes to show last ticker logs (default is 15)
+	const NUMBER_TICKER_LOGS = 5;		// Number of ticker logs until repetition (default is 5)
     const USE_LOCAL_TIME     = true;    // To display in UTC/GMT, set this value to true
     const PLAY_ALERT_SOUND   = true;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
     
@@ -41,6 +43,11 @@ The following variables can be changed in the header of the es-alert.js:
 To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. – Additionally, a status indicator for sporadic E (ES) is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). Hovering over the indicator informs you when the message was published. The MUF display can be deactivated using a switch in the web server options.
 
 ## History:
+
+### Version 1.3 
+
+- Added message duration for mouseover
+- Switch to quickly disable the MUF display implemented in the web server settings
 
 ### Version 1.2 
 
