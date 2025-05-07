@@ -8,11 +8,10 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 ![image](https://github.com/user-attachments/assets/72b6ae0f-7727-48b6-bbea-29c89b7b12f7)
 
 
-## Version 1.5 
+## Version 1.5a 
 
-- ES Ticker in a new design with more information
-- Frequencies in the ticker are now clickable
-- Regions (EU, NA, and AU) now also apply to the ticker
+- bugfixing
+- the ticker now also retrieves country-specific logs
 
 ## Installation notes:
 
@@ -26,22 +25,32 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 The following variables can be changed in the header of the es-alert.js:
 
-    /// ES Alert and Ticker Options ///
-    const OMID			= '1234';	// Enter the valid FMLIST OMID here, e.g. '1234'
-    const LAST_ALERT_MINUTES 	= 15;		// Enter the time in minutes for displaying the last message when loading the page (default is 15)
-    const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 15)
-    const NUMBER_TICKER_LOGS 	= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
-    const TICKER_ROTATE_SECONDS	= 5;		// Rotate every X seconds (default is 5)
-    const SELECTED_REGION		= 'EU';		// Options: 'EU', 'NA', 'AU'
-    const USE_LOCAL_TIME     	= true;		// To display in UTC/GMT, set this value to true
-    const PLAY_ALERT_SOUND  	= true;		// If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
+  /* ==== ES ALERT & MUF Info Options ================================================= */
+  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
+  const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
+  const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
+    
+  /* ==== ES Ticker Options ================================================= */
+  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5)
+  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
+  const TICKER_REGION 			= 'EU';		// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
 
+ /* ==== Global Options ================================================= */
+  const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
 
 ## Notes: 
 
-To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. – Additionally, a status indicator for sporadic E (ES) is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). Hovering over the indicator informs you when the message was published. The MUF display can be deactivated using a switch in the web server options. By default, the ticker displays the last 5 logs from the last 15 minutes. The logs change every 3 seconds; clicking on them opens the log entry in the FMLIST map. The ticker can be turned on or off in the web server settings. Clicking on the frequency in the ticker log switches to the web server. Clicking on the ticker heading opens the FMLIST ES page.
+To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. – Additionally, a status indicator for sporadic E (ES) is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). Hovering over the indicator informs you when the message was published. The MUF display can be deactivated using a switch in the web server options. By default, the ticker displays the last 5 logs from the last 5 minutes. The logs change every 3 seconds; clicking on them opens the log entry in the FMLIST map. The ticker can be turned on or off in the web server settings. Clicking on the frequency in the ticker log switches to the web server. Clicking on the ticker heading opens the FMLIST ES page.
 
 ## History:
+
+### Version 1.5 
+
+- ES Ticker in a new design with more information
+- Frequencies in the ticker are now clickable
+- Regions (EU, NA, and AU) now also apply to the ticker
 
 ### Version 1.4 
 
