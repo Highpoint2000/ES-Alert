@@ -27,14 +27,14 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 The following variables can be changed in the header of the es-alert.js:
 
     /// ES Alert and Ticker Options ///
-    const OMID               = '1234';   // Enter the valid FMLIST OMID here, e.g. '1234'
-    const LAST_ALERT_MINUTES = 15;       // Enter the time in minutes for displaying the last message when loading the page (default is 15)
-	const LAST_TICKER_MINUTES = 15;      // Minutes to show last ticker logs (default is 15)
-	const NUMBER_TICKER_LOGS = 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
-	const TICKER_ROTATE_SECONDS	= 5;    	// Rotate every X seconds (default is 5)
-    const SELECTED_REGION = 'EU';       // Options: 'EU', 'NA', 'AU'
-    const USE_LOCAL_TIME     = true;    // To display in UTC/GMT, set this value to true
-    const PLAY_ALERT_SOUND   = true;    // If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
+    const OMID			= '1234';	// Enter the valid FMLIST OMID here, e.g. '1234'
+    const LAST_ALERT_MINUTES 	= 15;		// Enter the time in minutes for displaying the last message when loading the page (default is 15)
+    const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 15)
+    const NUMBER_TICKER_LOGS 	= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+    const TICKER_ROTATE_SECONDS	= 5;		// Rotate every X seconds (default is 5)
+    const SELECTED_REGION		= 'EU';		// Options: 'EU', 'NA', 'AU'
+    const USE_LOCAL_TIME     	= true;		// To display in UTC/GMT, set this value to true
+    const PLAY_ALERT_SOUND  	= true;		// If you want a sound to play when receiving a notification, set this variable to true. Also, copy the alert.mp3 file frome the plugin folder to the ...\web\sound directory of the fmdx web server. The \sound folder still needs to be created.
 
 
 ## Notes: 
