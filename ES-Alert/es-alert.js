@@ -10,11 +10,11 @@
   ////////////////////////////////////////////////////////
 
   /* ==== Options ================================================= */
-  const OMID               		= ''; 		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '8032'; 	// Enter the valid FMLIST OMID here, e.g. '1234'
   const LAST_ALERT_MINUTES 		= 15;       // Minutes to look back when page loads (default is 15)
   const LAST_TICKER_MINUTES 	= 15;      	// Minutes to show last ticker logs (default is 15)
   const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
-  const TICKER_ROTATE_SECONDS 	= 5;    	// Rotate every X seconds (default is 5)
+  const TICKER_ROTATE_SECONDS 	= 5;    	// Rotate every X seconds
   const SELECTED_REGION    		= 'EU';     // 'EU', 'NA', or 'AU'
   const USE_LOCAL_TIME     		= false; 	// true = display in local time, false = UTC/GMT
   const PLAY_ALERT_SOUND   		= true;     // true = play sound on new alert
@@ -29,13 +29,14 @@
   };
 
   const rxin = REGION_RXIN[SELECTED_REGION] || 'Eur';
+  const sec = LAST_TICKER_MINUTES * 60;
 
   /* ==== Global variables  ================================================= */
   const PLUGIN_VERSION     = '1.5';
   const todayUTC = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" in UTC
   const PLUGIN_PATH        = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
   const API_URL            = 'https://fmdx.org/includes/tools/get_muf.php';
-  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&hours=0&band=Es&rxin=${rxin}`;
+  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&hours=${sec}&band=Es&rxin=${rxin}`;
   const CORS_PROXY_URL     = 'https://cors-proxy.de:13128/';
   const PLUGIN_JS_FILE     = 'main/ES-Alert/es-alert.js';
   const PLUGIN_NAME        = 'ES-Alert';
@@ -382,25 +383,26 @@ function openAzimuthMap() {
   })('ES-ALERT-on-off');
   
   
-/* ================================================================== */
-  /*  WebSocket frequency sender                                       */
-  /* ================================================================== */
+  /* =================================================================== *
+   *   WebSocket frequency sender (ephemeral connection)                *
+   * =================================================================== */
+  const currentURL = new URL(window.location.href);
+  const protocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WebsocketPORT = currentURL.port || (currentURL.protocol === 'https:' ? '443' : '80');
+  const WEBSOCKET_URL = `${protocol}//${currentURL.hostname}:${WebsocketPORT}${currentURL.pathname.replace(/setup/g,'')}text`;
+
   function sendFrequency(freq, event) {
     event.preventDefault();
     const dataToSend = `T${(parseFloat(freq)*1000).toFixed(0)}`;
-    socket.send(dataToSend);
-    console.log('Frequency sent:', dataToSend);
+    const ws = new WebSocket(WEBSOCKET_URL);
+    ws.addEventListener('open', () => {
+      ws.send(dataToSend);
+      console.log('Frequency sent:', dataToSend);
+      ws.close();
+    });
+    ws.addEventListener('error', err => console.error('WebSocket error:', err));
   }
   window.sendFrequency = sendFrequency;
-
-  /* ================================================================== */
-  /*  WebSocket connection setup                                        */
-  /* ================================================================== */
-  const currentURL = new URL(window.location.href);
-  const protocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
-  const WebsocketPORT = currentURL.port || (currentURL.protocol==='https:'?'443':'80');
-  const WEBSOCKET_URL = `${protocol}//${currentURL.hostname}:${WebsocketPORT}${currentURL.pathname.replace(/setup/g,'')}text`;
-  const socket = new WebSocket(WEBSOCKET_URL);
 
   /* ====================== TICKER MODULE ============================== */
   ;(function() {
