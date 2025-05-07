@@ -25,20 +25,20 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 The following variables can be changed in the header of the es-alert.js:
 
-  /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
-  const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
-  const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
-  const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
+    /* ==== ES ALERT & MUF Info Options ================================================= */
+    const OMID               = '';	  // Enter the valid FMLIST OMID here, e.g. '1234'
+    const SELECTED_REGION    = 'EU';  // 'EU', 'NA', or 'AU'
+    const LAST_ALERT_MINUTES = 15;    // Minutes to look back when page loads (default is 15)
+    const PLAY_ALERT_SOUND   = true;  // true = play sound on new alert
     
-  /* ==== ES Ticker Options ================================================= */
-  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5)
-  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
-  const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
-  const TICKER_REGION 			= 'EU';		// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
-
- /* ==== Global Options ================================================= */
-  const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
+    /* ==== ES Ticker Options ================================================= */
+    const LAST_TICKER_MINUTES   = 5;    // Minutes to show last ticker logs (default is 5)
+    const NUMBER_TICKER_LOGS    = 5;    // Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+    const TICKER_ROTATE_SECONDS = 5;    // Rotate every X seconds
+    const TICKER_REGION         = 'EU'; // 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
+    
+    /* ==== Global Options ================================================= */
+    const USE_LOCAL_TIME        = true; // true = display in local time, false = UTC/GMT
 
 ## Notes: 
 
