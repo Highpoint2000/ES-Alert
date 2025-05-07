@@ -1,35 +1,58 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.4)      ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 05.05.2025   ///
+  ///  by Highpoint           last update 06.05.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
-  /* ==== ES Alert Options ================================================= */
-  const OMID               = '1234';       	// Enter the valid FMLIST OMID here, e.g. '1234'
-  const LAST_ALERT_MINUTES = 15;           	// Minutes to look back when page loads (default is 15)
-  const LAST_TICKER_MINUTES = 15;          	// Minutes to show last ticker logs (default is 15)
-  const NUMBER_TICKER_LOGS = 5;				// Number of ticker logs until repetition (default is 5) 
-  const USE_LOCAL_TIME     = true;         	// true = display in local time, false = UTC/GMT
-  const PLAY_ALERT_SOUND   = true;         	// true = play sound on new alert
-  /* ==== ES Status Display Options  ========================================= */
-  const SELECTED_REGION    = 'EU';         	// 'EU', 'NA', or 'AU'
+  /* ==== Options ================================================= */
+  const OMID               		= ''; 		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const LAST_ALERT_MINUTES 		= 15;       // Minutes to look back when page loads (default is 15)
+  const LAST_TICKER_MINUTES 	= 15;      	// Minutes to show last ticker logs (default is 15)
+  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const TICKER_ROTATE_SECONDS 	= 5;    	// Rotate every X seconds (default is 5)
+  const SELECTED_REGION    		= 'EU';     // 'EU', 'NA', or 'AU'
+  const USE_LOCAL_TIME     		= false; 	// true = display in local time, false = UTC/GMT
+  const PLAY_ALERT_SOUND   		= true;     // true = play sound on new alert
+
+  ////////////////////////////////////////////////////////
+
+  // Region → rxin mapping
+  const REGION_RXIN = {
+   EU: 'Eur',
+   NA: 'Ame',
+   AU: 'AUT'
+  };
+
+  const rxin = REGION_RXIN[SELECTED_REGION] || 'Eur';
 
   /* ==== Global variables  ================================================= */
-  const PLUGIN_VERSION     = '1.4';
+  const PLUGIN_VERSION     = '1.5';
+  const todayUTC = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" in UTC
   const PLUGIN_PATH        = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
   const API_URL            = 'https://fmdx.org/includes/tools/get_muf.php';
-  const FEED_URL           = 'http://www.fmlist.org/logfeed.php?band=Es';
+  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&hours=0&band=Es&rxin=${rxin}`;
   const CORS_PROXY_URL     = 'https://cors-proxy.de:13128/';
   const PLUGIN_JS_FILE     = 'main/ES-Alert/es-alert.js';
   const PLUGIN_NAME        = 'ES-Alert';
   const UPDATE_KEY         = `${PLUGIN_NAME}_lastUpdateNotification`;
   const ES_STATUS_ENABLED  = true;
-
+  
+  /* ==== Inject link CSS ==================================== */
+  const css = `
+    .es-frequency-link { text-decoration: none; }
+    .es-frequency-link:hover { text-decoration: underline; }
+    #esAlertTickerHeading { text-decoration: none; cursor: pointer; }
+    #esAlertTickerHeading:hover { text-decoration: underline; }
+  `;
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+  
   /* ==== Sound setup ======================================================= */
   const alertSoundUrl = `${location.protocol}//${location.host}/sound/alert.mp3`;
   const alertAudio    = new Audio(alertSoundUrl);
@@ -53,6 +76,7 @@
   let isTuneLoggedIn     = false;
   let isAuthenticated    = false;
   let azimuthMapWindow   = null;
+  const domain = window.location.host; 
 
   const REGION_KEYS = {
     EU: 'europe',
@@ -357,138 +381,129 @@ function openAzimuthMap() {
     `).appendTo('head');
   })('ES-ALERT-on-off');
   
-// ====================== TICKER MODULE ======================
-
-;(function() {
-  // Configuration
-  const TICKER_CONTAINER_SELECTOR = '.wrapper-outer.main-content';  // insert into main-content
-  const PROXY_PREFIX = CORS_PROXY_URL;      // reuses existing CORS proxy constant
-  const ROTATE_MS    = 3_000;               // rotate every 3 seconds
-  const REFRESH_MS   = 60_000;              // reload feed every 1 minute
-  const FIFTEEN_MINUTES = LAST_TICKER_MINUTES * 60 * 1000;
-
-  // State
-  let tickerEntries = [];  // array of { desc, link }
-  let tickerIndex   = 0;
-  const now = Date.now();
   
-  // Create heading and ticker element, prepend inside the main-content wrapper
-  const container = document.querySelector(TICKER_CONTAINER_SELECTOR);
-  let tickerEl;
-  if (container) {
-    // Heading with inline style (no color override)
-    const heading = document.createElement('h3');
-	heading.id = 'esAlertTickerHeading';
-    heading.setAttribute('style', 'margin:0 0 1px 0; padding:0; text-align:right;');
-    heading.textContent = `ES Ticker (Last ${LAST_TICKER_MINUTES} Minutes)`;
-    // Ticker container
-    tickerEl = document.createElement('div');
-    tickerEl.id = 'esAlertTicker';
-    Object.assign(tickerEl.style, {
-      fontFamily: 'sans-serif',
-      fontSize: '1rem',
-      color: 'white',
-      background: 'none',
-      border: 'none',
-      textAlign: 'right',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      padding: '0.5em',
-      marginBottom: '0.5em'
-    });
-    tickerEl.textContent = 'Loading logs…';
-    // Prepend heading then ticker
-    container.prepend(tickerEl);
-    container.prepend(heading);
+/* ================================================================== */
+  /*  WebSocket frequency sender                                       */
+  /* ================================================================== */
+  function sendFrequency(freq, event) {
+    event.preventDefault();
+    const dataToSend = `T${(parseFloat(freq)*1000).toFixed(0)}`;
+    socket.send(dataToSend);
+    console.log('Frequency sent:', dataToSend);
+  }
+  window.sendFrequency = sendFrequency;
 
-const style = document.createElement('style');
-style.textContent = `
-  @media (max-width: 768px) {
-    #esAlertTicker,
-    #esAlertTickerHeading {
-      display: none !important;
+  /* ================================================================== */
+  /*  WebSocket connection setup                                        */
+  /* ================================================================== */
+  const currentURL = new URL(window.location.href);
+  const protocol = currentURL.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WebsocketPORT = currentURL.port || (currentURL.protocol==='https:'?'443':'80');
+  const WEBSOCKET_URL = `${protocol}//${currentURL.hostname}:${WebsocketPORT}${currentURL.pathname.replace(/setup/g,'')}text`;
+  const socket = new WebSocket(WEBSOCKET_URL);
+
+  /* ====================== TICKER MODULE ============================== */
+  ;(function() {
+    const TICKER_CONTAINER_SELECTOR = '.wrapper-outer.main-content';
+    const ROTATE_MS = TICKER_ROTATE_SECONDS * 1000;
+    const REFRESH_MS = 60000;
+    let tickerEntries = [];
+    let tickerIndex = 0;
+    let nextEntries = [];
+    const container = document.querySelector(TICKER_CONTAINER_SELECTOR);
+    let tickerEl;
+
+    if (container) {
+      const heading = document.createElement('h3');
+      heading.id = 'esAlertTickerHeading';
+      heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
+      heading.textContent = `ES Ticker ${SELECTED_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
+      // Make heading clickable to open full logmap
+      heading.style.cursor = 'pointer';
+      heading.addEventListener('click', () => {
+        const sec = LAST_TICKER_MINUTES * 60;
+        const url = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&band=Es&rxin=${rxin}&omid=all&hours=${sec}`;
+        window.open(url, '_blank');
+      });
+      tickerEl = document.createElement('div');
+      tickerEl.id = 'esAlertTicker';
+      Object.assign(tickerEl.style, {
+		minHeight: '6ch',
+        fontFamily: 'sans-serif', fontSize: '1rem', color: 'white', background: 'none',
+        border: 'none', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
+        padding: '0.1em', marginBottom: '0.1em'
+      });
+      tickerEl.textContent = 'Loading logs…';
+      container.prepend(tickerEl);
+      container.prepend(heading);
+      const mobileStyle = document.createElement('style');
+      mobileStyle.textContent = `@media(max-width:768px){#esAlertTicker,#esAlertTickerHeading{display:none!important;}}`;
+      document.head.appendChild(mobileStyle);
     }
-  }
-`;
-document.head.appendChild(style);
+	
+    async function loadTickerFeed() {
+      try {
+        const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `?cb=${Date.now()}&domain=${domain}`);
+        const textBuf = await res.arrayBuffer();
+        const text = new TextDecoder('windows-1252').decode(textBuf);
+        const doc = new DOMParser().parseFromString(text, 'text/html');
+        const rows = Array.from(doc.querySelectorAll('tr[valign="top"]')).reverse();
+        nextEntries = rows.map(row => {
+          const tds = row.querySelectorAll('td');
+          const timeRaw = tds[1]?.textContent.trim().padStart(4,'0') || '0000';
+          const hours = +timeRaw.slice(0,2), mins = +timeRaw.slice(2);
+          const utcDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), hours, mins));
+          const ageMin = Math.floor((Date.now() - utcDate) / 60000);
+          if (ageMin > LAST_TICKER_MINUTES) return null;
+          const timeDisplay = USE_LOCAL_TIME
+            ? utcDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+            : `${timeRaw.slice(0,2)}:${timeRaw.slice(2)} UTC`;
+          const freq = tds[3]?.textContent.trim();
+          const country = tds[4]?.textContent.trim();
+          const senderRaw = tds[5]?.textContent.trim();
+          const rxInfoRaw = tds[8]?.textContent.trim() || '';
+          if (!freq || !senderRaw || !rxInfoRaw) return null;
+          const senderClean = senderRaw.replace(/\s*\([^()]*\)/g,'').trim();
+          const ageText = ageMin===0 ? '(just now)' : `(${ageMin} min ago)`;
+          return { freq, senderClean, country, rxInfoRaw, timeDisplay, ageText };
+        }).filter(Boolean).slice(0, NUMBER_TICKER_LOGS);
+      } catch(err) { console.error('Ticker load error:', err); nextEntries = []; }
+    }
 
-  }
-
-  // Fetch RSS feed, decode ISO-8859-1, parse XML, extract latest 5 descriptions + links
-  async function loadTickerFeed() {
-  const cb = Date.now();
-  const domain = window.location.host;
-
-  try {
-    const res = await fetch(PROXY_PREFIX + FEED_URL + `&cb=${cb}&domain=${domain}`, {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    });
-    const buffer = await res.arrayBuffer();
-    const text = new TextDecoder('iso-8859-1').decode(buffer);
-    const xml = new DOMParser().parseFromString(text, 'application/xml');
-    const items = Array.from(xml.querySelectorAll('item')).slice(0, NUMBER_TICKER_LOGS);
-
-    const now = Date.now();
-    tickerEntries = items.map(item => {
-      let orig = item.querySelector('description')?.textContent.trim() || '';
-      const link = item.querySelector('link')?.textContent.trim() || '';
-
-      const dateMatch = orig.match(/on\s+(\d{4})-(\d{2})-(\d{2})\s+at\s+(\d{2,4})\s+UTC/);
-      if (!dateMatch) return null;
-
-      const [_, y, m, d, t] = dateMatch;
-      const hh = t.length === 3 ? t.slice(0,1) : t.slice(0,2);
-      const mm = t.slice(-2);
-      const utcDate = new Date(Date.UTC(+y, +m - 1, +d, +hh, +mm));
-
-      if (now - utcDate.getTime() > FIFTEEN_MINUTES) return null;
-
-      const formattedTime = USE_LOCAL_TIME
-        ? utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : `${hh.padStart(2, '0')}:${mm} UTC`;
-
-      let desc = orig.replace(/\s+via\s+Es/i, '')
-                     .replace(/\s+on\s+\d{4}-\d{2}-\d{2}\s+at\s+\d{2,4}\s+UTC/, '')
-                     .trim();
-      desc = desc.replace(/logged in\s+([A-Za-z]{1,4})\s+(.+)/i,
-                          (match, code, station) => `logged in ${station.trim()} (${code.toUpperCase()})`);
-
-      return {
-        desc: `${formattedTime} - ${desc}`,
-        link
-      };
-    }).filter(Boolean);
-
-    tickerIndex = 0;
-  } catch (err) {
-    console.error('Ticker: failed to load feed', err);
-    tickerEntries = [];
-  }
-}
-
-
-  // Rotate through entries every ROTATE_MS
-  function rotateTicker() {
-    if (!tickerEl) return;
-    if (!tickerEntries.length) {
-      tickerEl.textContent = 'No log entries available.';
-    } else {
-      const { desc, link } = tickerEntries[tickerIndex % tickerEntries.length];
-      // render without underline
-      tickerEl.innerHTML = `<a href=\"${link}\" target=\"_blank\" style=\"color: inherit; text-decoration: none;\">${desc}</a>`;
+    function rotateTicker() {
+      if (!tickerEl) return;
+      if (!nextEntries.length) {
+        tickerEl.textContent = 'No log entries available.';
+        return;
+      }
+      const entry = nextEntries[tickerIndex % nextEntries.length];
+      tickerEl.innerHTML = '';
+      // Create frequency link span
+      const freqSpan = document.createElement('span');
+      freqSpan.textContent = `${entry.freq} MHz`;
+      freqSpan.classList.add('es-frequency-link');
+      freqSpan.title = 'Tune to frequency';
+      freqSpan.style.cursor = 'pointer';
+      freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
+      tickerEl.appendChild(freqSpan);
+      // Append rest text
+      tickerEl.appendChild(document.createTextNode(` | ${entry.senderClean} [${entry.country}] `));
+      const small = document.createElement('span');
+      small.style.cssText = 'font-size:0.8rem;color:grey;';
+      small.textContent = `${entry.rxInfoRaw.replace(/[()]/g,m=>m==='('?'[':']')} | ${entry.timeDisplay} ${entry.ageText}`;      
+      tickerEl.appendChild(document.createElement('br')); // Add line break
+      tickerEl.appendChild(small);
       tickerIndex++;
     }
-  }
 
-  // Initialize ticker: load feed then set intervals
-  (async function initTicker() {
-    await loadTickerFeed();
-    setInterval(loadTickerFeed, REFRESH_MS);
-    setInterval(rotateTicker,  ROTATE_MS);
+    (async function initTicker() {
+      await loadTickerFeed();
+      setInterval(loadTickerFeed, REFRESH_MS);
+      setInterval(rotateTicker, ROTATE_MS);
+    })();
+
   })();
 
-})();
-// ==================== END TICKER MODULE ====================
 
 /* =================================================================== *
  *   Injects a toggle switch into the dashboard side-settings          *
@@ -554,7 +569,6 @@ async function updateMUF() {
 
   try {
     // include your own host:port
-    const domain = window.location.host; 
     const url = `${CORS_PROXY_URL}${API_URL}?cb=${Date.now()}&domain=${domain}`;
 
     const resp = await fetch(url);
