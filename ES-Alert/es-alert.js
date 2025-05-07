@@ -1,7 +1,7 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5)      ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5a)     ///
   ///                                                  ///
   ///  by Highpoint           last update 06.05.2025   ///
   ///                                                  ///
@@ -9,15 +9,20 @@
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
-  /* ==== Options ================================================= */
-  const OMID               		= '8032'; 	// Enter the valid FMLIST OMID here, e.g. '1234'
-  const LAST_ALERT_MINUTES 		= 15;       // Minutes to look back when page loads (default is 15)
-  const LAST_TICKER_MINUTES 	= 15;      	// Minutes to show last ticker logs (default is 15)
+  /* ==== ES ALERT & MUF Info Options ================================================= */
+  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
+  const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
+  const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
+    
+  /* ==== ES Ticker Options ================================================= */
+  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5)
   const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
-  const TICKER_ROTATE_SECONDS 	= 5;    	// Rotate every X seconds
-  const SELECTED_REGION    		= 'EU';     // 'EU', 'NA', or 'AU'
-  const USE_LOCAL_TIME     		= false; 	// true = display in local time, false = UTC/GMT
-  const PLAY_ALERT_SOUND   		= true;     // true = play sound on new alert
+  const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
+  const TICKER_REGION 			= 'EU';		// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
+
+ /* ==== Global Options ================================================= */
+  const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
 
   ////////////////////////////////////////////////////////
 
@@ -28,15 +33,14 @@
    AU: 'AUT'
   };
 
-  const rxin = REGION_RXIN[SELECTED_REGION] || 'Eur';
+  const rxin = REGION_RXIN[TICKER_REGION] || TICKER_REGION.toUpperCase();
   const sec = LAST_TICKER_MINUTES * 60;
 
   /* ==== Global variables  ================================================= */
-  const PLUGIN_VERSION     = '1.5';
-  const todayUTC = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" in UTC
+  const PLUGIN_VERSION     = '1.5a';
   const PLUGIN_PATH        = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
   const API_URL            = 'https://fmdx.org/includes/tools/get_muf.php';
-  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&hours=${sec}&band=Es&rxin=${rxin}`;
+  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?&hours=${sec}&omid=all&band=Es&rxin=${rxin}&target=ALL`;
   const CORS_PROXY_URL     = 'https://cors-proxy.de:13128/';
   const PLUGIN_JS_FILE     = 'main/ES-Alert/es-alert.js';
   const PLUGIN_NAME        = 'ES-Alert';
@@ -405,10 +409,11 @@ function openAzimuthMap() {
   window.sendFrequency = sendFrequency;
 
   /* ====================== TICKER MODULE ============================== */
-  ;(function() {
+
     const TICKER_CONTAINER_SELECTOR = '.wrapper-outer.main-content';
-    const ROTATE_MS = TICKER_ROTATE_SECONDS * 1000;
+	const ROTATE_MS = TICKER_ROTATE_SECONDS * 1000;
     const REFRESH_MS = 60000;
+	
     let tickerEntries = [];
     let tickerIndex = 0;
     let nextEntries = [];
@@ -419,13 +424,11 @@ function openAzimuthMap() {
       const heading = document.createElement('h3');
       heading.id = 'esAlertTickerHeading';
       heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
-      heading.textContent = `ES Ticker ${SELECTED_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
+      heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
       // Make heading clickable to open full logmap
       heading.style.cursor = 'pointer';
       heading.addEventListener('click', () => {
-        const sec = LAST_TICKER_MINUTES * 60;
-        const url = `https://www.fmlist.org/fm_logmap.php?datum=${todayUTC}&band=Es&rxin=${rxin}&omid=all&hours=${sec}`;
-        window.open(url, '_blank');
+      window.open(SOURCE_URL, '_blank');
       });
       tickerEl = document.createElement('div');
       tickerEl.id = 'esAlertTicker';
@@ -443,9 +446,10 @@ function openAzimuthMap() {
       document.head.appendChild(mobileStyle);
     }
 	
+	
     async function loadTickerFeed() {
       try {
-        const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `?cb=${Date.now()}&domain=${domain}`);
+        const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `&cb=${Date.now()}&domain=${domain}`);
         const textBuf = await res.arrayBuffer();
         const text = new TextDecoder('windows-1252').decode(textBuf);
         const doc = new DOMParser().parseFromString(text, 'text/html');
@@ -498,15 +502,7 @@ function openAzimuthMap() {
       tickerIndex++;
     }
 
-    (async function initTicker() {
-      await loadTickerFeed();
-      setInterval(loadTickerFeed, REFRESH_MS);
-      setInterval(rotateTicker, ROTATE_MS);
-    })();
-
-  })();
-
-
+  
 /* =================================================================== *
  *   Injects a toggle switch into the dashboard side-settings          *
  * =================================================================== */
@@ -603,7 +599,8 @@ async function updateMUF() {
   /* =================================================================== *
    *   Initializes Dashboard Extensions for Sporadic E MUF Panel         *
    * =================================================================== */
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {  
+	  
   // 1) Find existing “Manual decimals” form-group
   const manualGroup = document
     .getElementById('extended-frequency-range')
@@ -685,25 +682,41 @@ async function updateMUF() {
   sporadicGroup.after(tickerToggleWrapper);
 
   // 11) Load and apply ticker state
-  const tickerToggle = document.getElementById('toggle-es-ticker');
-  const tickerHideOnChecked = localStorage.getItem('esTickerEnabled') === 'true';
-  tickerToggle.checked = tickerHideOnChecked;
+const tickerToggle = document.getElementById('toggle-es-ticker');
+const tickerHideOnChecked = localStorage.getItem('esTickerEnabled') === 'true';
+tickerToggle.checked = tickerHideOnChecked;
 
-  const headingEl    = document.getElementById('esAlertTickerHeading');
-  const tickerEl     = document.getElementById('esAlertTicker');
+const headingEl = document.getElementById('esAlertTickerHeading');
+const tickerEl = document.getElementById('esAlertTicker');
 
-  if (tickerHideOnChecked) {
-    if (headingEl) headingEl.style.display = 'none';
-    if (tickerEl)  tickerEl.style.display  = 'none';
+if (tickerHideOnChecked) {
+  if (headingEl) headingEl.style.display = 'none';
+  if (tickerEl) tickerEl.style.display = 'none';
+} else {
+  (async function initTicker() {
+    await loadTickerFeed();
+    setInterval(loadTickerFeed, REFRESH_MS);
+    setInterval(rotateTicker, ROTATE_MS);
+  })();
+}
+
+tickerToggle.addEventListener('change', () => {
+  const hide = tickerToggle.checked;
+  localStorage.setItem('esTickerEnabled', hide);
+
+  if (headingEl) headingEl.style.display = hide ? 'none' : '';
+  if (tickerEl) tickerEl.style.display = hide ? 'none' : '';
+
+  // Wenn der Ticker angezeigt werden soll, lade ihn neu und starte die Intervalle
+  if (!hide) {
+    (async function initTicker() {
+      await loadTickerFeed();
+      setInterval(loadTickerFeed, REFRESH_MS);
+      setInterval(rotateTicker, ROTATE_MS);
+    })();
   }
-
-  tickerToggle.addEventListener('change', () => {
-    const hide = tickerToggle.checked;
-    localStorage.setItem('esTickerEnabled', hide);
-
-    if (headingEl) headingEl.style.display = hide ? 'none' : '';
-    if (tickerEl)  tickerEl.style.display  = hide ? 'none' : '';
-  });
+});
+  
 });
 
 })();
