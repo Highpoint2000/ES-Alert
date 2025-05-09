@@ -1,9 +1,9 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5a)     ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5b)     ///
   ///                                                  ///
-  ///  by Highpoint           last update 06.05.2025   ///
+  ///  by Highpoint           last update 09.05.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
@@ -19,9 +19,9 @@
   const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5)
   const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
-  const TICKER_REGION 			= 'EU';		// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
+  const TICKER_REGION 			= 'EU'; 	// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
 
- /* ==== Global Options ================================================= */
+  /* ==== Global Options ================================================= */
   const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
 
   ////////////////////////////////////////////////////////
@@ -37,7 +37,7 @@
   const sec = LAST_TICKER_MINUTES * 60;
 
   /* ==== Global variables  ================================================= */
-  const PLUGIN_VERSION     = '1.5a';
+  const PLUGIN_VERSION     = '1.5b';
   const PLUGIN_PATH        = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
   const API_URL            = 'https://fmdx.org/includes/tools/get_muf.php';
   const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?&hours=${sec}&omid=all&band=Es&rxin=${rxin}&target=ALL`;
@@ -47,12 +47,17 @@
   const UPDATE_KEY         = `${PLUGIN_NAME}_lastUpdateNotification`;
   const ES_STATUS_ENABLED  = true;
   
+  /* ==== Dynamic country → flag lookup via remote + cache ==== */
+  const COUNTRY_LIST_URL       = 'https://tef.noobish.eu/logos/scripts/js/countryList.js';
+  const COUNTRY_CACHE_KEY      = 'ESAlert_CountryList';
+  const COUNTRY_CACHE_TIME_KEY = 'ESAlert_CountryListTime';
+  const COUNTRY_CACHE_TTL      = 24 * 60 * 60 * 1000; // 24 hours
+
   /* ==== Inject link CSS ==================================== */
   const css = `
     .es-frequency-link { text-decoration: none; }
     .es-frequency-link:hover { text-decoration: underline; }
-    #esAlertTickerHeading { text-decoration: none; cursor: pointer; }
-    #esAlertTickerHeading:hover { text-decoration: underline; }
+	
   `;
   const style = document.createElement('style');
   style.textContent = css;
@@ -76,6 +81,7 @@
   let ALERT_ACTIVE       = JSON.parse(localStorage.getItem('ESAlertActive') || 'true');
   let alertIntervalId    = null;
   let lastAzimuths       = [];
+  let countryDisplay	 = 'ALL';
 
   let isAdminLoggedIn    = false;
   let isTuneLoggedIn     = false;
@@ -262,10 +268,8 @@ function openAzimuthMap() {
   },500);
 }
 
-
-
   /* =================================================================== *
-   *  Fetch ES‑alert JSON + toast / sound                                *
+   *  Fetch ES alert JSON + toast / sound                                *
    * =================================================================== */
   async function fetchOmidData() {
     const cb = Date.now();
@@ -421,88 +425,158 @@ function openAzimuthMap() {
     let tickerEl;
 
     if (container) {
-      const heading = document.createElement('h3');
-      heading.id = 'esAlertTickerHeading';
-      heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
-      heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
-      // Make heading clickable to open full logmap
-      heading.style.cursor = 'pointer';
-      heading.addEventListener('click', () => {
-      window.open(SOURCE_URL, '_blank');
-      });
-      tickerEl = document.createElement('div');
-      tickerEl.id = 'esAlertTicker';
-      Object.assign(tickerEl.style, {
-		minHeight: '6ch',
-        fontFamily: 'sans-serif', fontSize: '1rem', color: 'white', background: 'none',
-        border: 'none', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
-        padding: '0.1em', marginBottom: '0.1em'
-      });
-      tickerEl.textContent = 'Loading logs…';
-      container.prepend(tickerEl);
-      container.prepend(heading);
-      const mobileStyle = document.createElement('style');
-      mobileStyle.textContent = `@media(max-width:768px){#esAlertTicker,#esAlertTickerHeading{display:none!important;}}`;
-      document.head.appendChild(mobileStyle);
-    }
-	
-	
-    async function loadTickerFeed() {
-      try {
-        const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `&cb=${Date.now()}&domain=${domain}`);
-        const textBuf = await res.arrayBuffer();
-        const text = new TextDecoder('windows-1252').decode(textBuf);
-        const doc = new DOMParser().parseFromString(text, 'text/html');
-        const rows = Array.from(doc.querySelectorAll('tr[valign="top"]')).reverse();
-        nextEntries = rows.map(row => {
-          const tds = row.querySelectorAll('td');
-          const timeRaw = tds[1]?.textContent.trim().padStart(4,'0') || '0000';
-          const hours = +timeRaw.slice(0,2), mins = +timeRaw.slice(2);
-          const utcDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), hours, mins));
-          const ageMin = Math.floor((Date.now() - utcDate) / 60000);
-          if (ageMin > LAST_TICKER_MINUTES) return null;
-          const timeDisplay = USE_LOCAL_TIME
-            ? utcDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-            : `${timeRaw.slice(0,2)}:${timeRaw.slice(2)} UTC`;
-          const freq = tds[3]?.textContent.trim();
-          const country = tds[4]?.textContent.trim();
-          const senderRaw = tds[5]?.textContent.trim();
-          const rxInfoRaw = tds[8]?.textContent.trim() || '';
-          if (!freq || !senderRaw || !rxInfoRaw) return null;
-          const senderClean = senderRaw.replace(/\s*\([^()]*\)/g,'').trim();
-          const ageText = ageMin===0 ? '(just now)' : `(${ageMin} min ago)`;
-          return { freq, senderClean, country, rxInfoRaw, timeDisplay, ageText };
-        }).filter(Boolean).slice(0, NUMBER_TICKER_LOGS);
-      } catch(err) { console.error('Ticker load error:', err); nextEntries = []; }
+		// Ticker module (Modify the logic to display the link symbol)
+		const heading = document.createElement('h3');
+		heading.id = 'esAlertTickerHeading';
+		heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
+		heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
+		heading.style.cursor = 'pointer';
+		heading.title = "Open logs on FMLIST"; // Tooltip text
+
+		// Display link icon only if rxin is not "NA" or "EU"
+		if (TICKER_REGION !== 'NA' && TICKER_REGION !== 'EU') {
+			// Add the link icon next to the heading (but do not modify the heading text)
+			const linkIcon = document.createElement('span');
+			linkIcon.innerHTML = '🔗'; // Add a link symbol
+			linkIcon.style.cursor = 'pointer';
+			linkIcon.style.marginLeft = '10px'; // Space between the text and the link icon
+			linkIcon.title = "Open reverse direction on FMLIST"; // Tooltip text
+			heading.appendChild(linkIcon);
+			heading.style.marginLeft = '40px';
+
+			// Make the link icon clickable to open the logmap with replaced 'target=ALL'
+			linkIcon.addEventListener('click', (event) => {
+				event.stopPropagation(); // Prevent the heading click from also firing
+
+				// Construct the dynamic URL with the current country
+				const dynamicUrl = SOURCE_URL
+					.replace(/target=ALL/, `target=${rxin}`)  // Replacing target with rxin
+					.replace(/rxin=[A-Za-z]+/, `rxin=ALL`); // Replacing rxin with ALL
+					// .replace(/rxin=[A-Za-z]+/, `rxin=${countryDisplay}`); // Replacing rxin with current country
+
+				window.open(dynamicUrl, '_blank');
+			});
+		}
+
+		// Make the heading clickable to open the original source_url (without modification)
+		heading.addEventListener('click', () => {
+			window.open(SOURCE_URL, '_blank');
+		});
+
+		// Add hover effect for underlining only on heading (not on linkIcon)
+		heading.classList.add('ticker-heading'); // Add class for styling
+
+		// Create the ticker element
+		tickerEl = document.createElement('div');
+		tickerEl.id = 'esAlertTicker';
+		Object.assign(tickerEl.style, {
+			minHeight: '6ch',
+			fontFamily: 'sans-serif', fontSize: '1rem', color: 'white', background: 'none',
+			border: 'none', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
+			padding: '0.1em', marginBottom: '0.1em'
+		});
+		tickerEl.textContent = 'Loading logs…';
+		container.prepend(tickerEl);
+		container.prepend(heading);
+		;
+
     }
 
-    function rotateTicker() {
-      if (!tickerEl) return;
-      if (!nextEntries.length) {
-        tickerEl.textContent = 'No log entries available.';
-        return;
-      }
-      const entry = nextEntries[tickerIndex % nextEntries.length];
-      tickerEl.innerHTML = '';
-      // Create frequency link span
-      const freqSpan = document.createElement('span');
-      freqSpan.textContent = `${entry.freq} MHz`;
-      freqSpan.classList.add('es-frequency-link');
-      freqSpan.title = 'Tune to frequency';
-      freqSpan.style.cursor = 'pointer';
-      freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
-      tickerEl.appendChild(freqSpan);
-      // Append rest text
-      tickerEl.appendChild(document.createTextNode(` | ${entry.senderClean} [${entry.country}] `));
-      const small = document.createElement('span');
-      small.style.cssText = 'font-size:0.8rem;color:grey;';
-      small.textContent = `${entry.rxInfoRaw.replace(/[()]/g,m=>m==='('?'[':']')} | ${entry.timeDisplay} ${entry.ageText}`;      
-      tickerEl.appendChild(document.createElement('br')); // Add line break
-      tickerEl.appendChild(small);
-      tickerIndex++;
-    }
+async function loadTickerFeed() {
+  try {
+    const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `&cb=${Date.now()}&domain=${domain}`);
+    const textBuf = await res.arrayBuffer();
+    const text = new TextDecoder('windows-1252').decode(textBuf);
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    const rows = Array.from(doc.querySelectorAll('tr[valign="top"]')).reverse();
+    nextEntries = rows.map(row => {
+      const tds = row.querySelectorAll('td');
+      const timeRaw = tds[1]?.textContent.trim().padStart(4,'0') || '0000';
+      const hours = +timeRaw.slice(0,2), mins = +timeRaw.slice(2);
+      const utcDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), hours, mins));
+      const ageMin = Math.floor((Date.now() - utcDate) / 60000);
+      if (ageMin > LAST_TICKER_MINUTES) return null;
+      const timeDisplay = USE_LOCAL_TIME
+        ? utcDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+        : `${timeRaw.slice(0,2)}:${timeRaw.slice(2)} UTC`;
+      const freq = tds[3]?.textContent.trim();
+      const country = tds[4]?.textContent.trim() || ''; // Set country to an empty string if no country found
+      const senderRaw = tds[5]?.textContent.trim();
+      const rxInfoRaw = tds[8]?.textContent.trim() || '';
+      if (!freq || !senderRaw || !rxInfoRaw) return null;
+      const senderClean = senderRaw.replace(/\s*\([^()]*\)/g,'').trim();
+      const ageText = ageMin===0 ? '(just now)' : `(${ageMin} min ago)`;
+      return { freq, senderClean, country, rxInfoRaw, timeDisplay, ageText };
+    }).filter(Boolean).slice(0, NUMBER_TICKER_LOGS);
+  } catch(err) { 
+    console.error('Ticker load error:', err); 
+    nextEntries = [];
+  }
+}
 
-  
+/**
+ * Renders one ticker entry: flag, frequency link, and metadata,
+ * then advances the index for the next rotation.
+ */
+function rotateTicker() {
+  if (!tickerEl) return;
+  if (!nextEntries.length) {
+    tickerEl.textContent = 'No log entries available.';
+    return;
+  }
+
+  const entry = nextEntries[tickerIndex % nextEntries.length];
+  tickerEl.innerHTML = '';
+
+  const rawCountry = (entry.country || '').trim();
+  const itu        = rawCountry.toUpperCase();
+  const flagCode   = ituToFlag[itu] || 'xx';
+  const flagUrl    = `https://flagcdn.com/24x18/${flagCode}.png`;
+  // console.log('▶️ rotateTicker:', { rawCountry, itu, flagCode, flagUrl });
+
+  // Only show flag if we have a real code
+  if (flagCode !== 'xx') {
+    const flag = document.createElement('img');
+    flag.src           = flagUrl;
+    flag.alt           = rawCountry;
+    flag.width         = 16;
+    flag.height        = 12;
+    flag.style.cssText = 'position:relative; top:-0.1px; margin-right:0.3em;';
+    flag.addEventListener('error', () => {
+      console.error('🚫 Flag load error, removing img:', flagUrl);
+      flag.remove();
+    });
+    tickerEl.appendChild(flag);
+  }
+
+  // Frequency link
+  const freqSpan = document.createElement('span');
+  freqSpan.textContent  = `${entry.freq} MHz`;
+  freqSpan.classList.add('es-frequency-link');
+  freqSpan.title        = 'Tune to frequency';
+  freqSpan.style.cursor = 'pointer';
+  freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
+  tickerEl.appendChild(freqSpan);
+
+  // Sender and country
+  countryDisplay = rawCountry || 'ALL';
+  tickerEl.appendChild(
+    document.createTextNode(` | ${entry.senderClean} [${rawCountry}] `)
+  );
+
+  // Time, Rx info, age
+  const small = document.createElement('span');
+  small.style.cssText = 'font-size:0.8rem;color:grey;';
+  small.textContent  =
+    `${entry.rxInfoRaw.replace(/[()]/g, m => m === '(' ? '[' : ']')} | ` +
+    `${entry.timeDisplay} ${entry.ageText}`;
+
+  tickerEl.appendChild(document.createElement('br'));
+  tickerEl.appendChild(small);
+
+  tickerIndex++;
+}
+ 
 /* =================================================================== *
  *   Injects a toggle switch into the dashboard side-settings          *
  * =================================================================== */
@@ -718,5 +792,75 @@ tickerToggle.addEventListener('change', () => {
 });
   
 });
+
+let ituToFlag = null;
+
+
+async function loadCountryLookup() {
+  console.log('⏳ Checking country lookup cache…');
+  try {
+    const raw = localStorage.getItem(COUNTRY_CACHE_KEY);
+    const ts  = parseInt(localStorage.getItem(COUNTRY_CACHE_TIME_KEY) || '0', 10);
+    if (raw && (Date.now() - ts < COUNTRY_CACHE_TTL)) {
+      const parsed = JSON.parse(raw);
+      if (Object.keys(parsed).length > 0) {
+        console.log('✅ Country lookup loaded from cache');
+        return parsed;
+      }
+      console.warn('⚠️ Cached lookup is empty → refetching');
+    }
+  } catch (e) {
+    console.warn('⚠️ Couldn’t parse country lookup cache', e);
+  }
+
+  // Fetch the JS directly
+  console.log('🌐 Fetching country list from', COUNTRY_LIST_URL);
+  const res = await fetch(COUNTRY_LIST_URL, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Country list fetch failed (${res.status})`);
+  }
+  const jsText = await res.text();
+
+  // Extract countryList
+  let countryList = [];
+  try {
+    countryList = (new Function(`${jsText}; return countryList;`))();
+    console.log(`✅ Extracted ${countryList.length} entries`);
+  } catch (e) {
+    console.error('❌ Eval failed for countryList.js', e);
+    throw e;
+  }
+
+  // Build the lookup map ITU → flag-code
+  const lookup = {};
+  countryList.forEach(({ itu_code, country_code }) => {
+    if (itu_code && country_code) {
+      lookup[itu_code.toUpperCase()] = country_code.toLowerCase();
+    }
+  });
+  console.log('🔍 Built lookup for', Object.keys(lookup).length, 'ITU codes');
+
+  // Cache it
+  try {
+    localStorage.setItem(COUNTRY_CACHE_KEY, JSON.stringify(lookup));
+    localStorage.setItem(COUNTRY_CACHE_TIME_KEY, Date.now().toString());
+    console.log('💾 Country lookup cached');
+  } catch (e) {
+    console.warn('⚠️ Couldn’t write country lookup cache', e);
+  }
+
+  return lookup;
+}
+
+// Kick off lookup, then start ticker only once ready
+loadCountryLookup()
+  .then(map => {
+    ituToFlag = map;
+    console.log('🚀 Country lookup ready:', Object.keys(map).slice(0,5), '…');
+  })
+  .catch(err => {
+    console.error('❌ Could not load country lookup – ticker will show no flags', err);
+    ituToFlag = {};
+  });
 
 })();
