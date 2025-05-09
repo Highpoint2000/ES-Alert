@@ -1,7 +1,7 @@
 // Plugin configuration, this is used in the administration when plugins are loaded
 var pluginConfig = {
     name: 'ES Alert',
-    version: '1.5a',
+    version: '1.5b',
     author: 'Highpoint',
     frontEndPath: 'ES-Alert/es-alert.js'
 }
