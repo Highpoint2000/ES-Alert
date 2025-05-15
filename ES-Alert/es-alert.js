@@ -1,51 +1,47 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V1.5b)     ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.0)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 09.05.2025   ///
+  ///  by Highpoint           last update 15.05.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
   /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '8032';	// Enter the valid FMLIST OMID here, e.g. '1234'
   const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
   const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
   const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
     
   /* ==== ES Ticker Options ================================================= */
-  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5)
-  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 5, maximum is 15)
+  const NUMBER_TICKER_LOGS 		= 15;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
-  const TICKER_REGION 			= 'EU'; 	// 'EU', 'NA', or 'AU' or ITU Code of Country (D, SUI, GRC ...)
+  const TICKER_REGION 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...)
+  const AUTOLOGGED_ENTRIES		= true;		// displays autologged entries 
 
   /* ==== Global Options ================================================= */
   const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
 
-  ////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Region → rxin mapping
-  const REGION_RXIN = {
-   EU: 'Eur',
-   NA: 'Ame',
-   AU: 'AUT'
-  };
-
-  const rxin = REGION_RXIN[TICKER_REGION] || TICKER_REGION.toUpperCase();
-  const sec = LAST_TICKER_MINUTES * 60;
+  const MAX_TICKER_MINUTES    	= 15;
+  const TICKER_MINUTES        	= Math.min(LAST_TICKER_MINUTES, MAX_TICKER_MINUTES);
+  const TICKER_SECONDS 			= TICKER_MINUTES * 60;
 
   /* ==== Global variables  ================================================= */
-  const PLUGIN_VERSION     = '1.5b';
-  const PLUGIN_PATH        = 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
-  const API_URL            = 'https://fmdx.org/includes/tools/get_muf.php';
-  const SOURCE_URL 		   = `https://www.fmlist.org/fm_logmap.php?&hours=${sec}&omid=all&band=Es&rxin=${rxin}&target=ALL`;
-  const CORS_PROXY_URL     = 'https://cors-proxy.de:13128/';
-  const PLUGIN_JS_FILE     = 'main/ES-Alert/es-alert.js';
-  const PLUGIN_NAME        = 'ES-Alert';
-  const UPDATE_KEY         = `${PLUGIN_NAME}_lastUpdateNotification`;
-  const ES_STATUS_ENABLED  = true;
+  const PLUGIN_VERSION     		= '2.0'
+  const PLUGIN_PATH        		= 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
+  const API_URL            		= 'https://fmdx.org/includes/tools/get_muf.php';
+  const TICKER_TEST_URL	   		= '';
+  const ESTICKER_URL       		= 'https://www.fmlist.org/esticker.php';
+  const CORS_PROXY_URL     		= 'https://cors-proxy.de:13128/';
+  const PLUGIN_JS_FILE     		= 'main/ES-Alert/es-alert.js';
+  const PLUGIN_NAME        		= 'ES-Alert';
+  const UPDATE_KEY         		= `${PLUGIN_NAME}_lastUpdateNotification`;
+  const ES_STATUS_ENABLED  		= true;
   
   /* ==== Dynamic country → flag lookup via remote + cache ==== */
   const COUNTRY_LIST_URL       = 'https://tef.noobish.eu/logos/scripts/js/countryList.js';
@@ -429,40 +425,44 @@ function openAzimuthMap() {
 		const heading = document.createElement('h3');
 		heading.id = 'esAlertTickerHeading';
 		heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
-		heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${LAST_TICKER_MINUTES} Minutes)`;
+		heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${TICKER_MINUTES} Minutes)`;
 		heading.style.cursor = 'pointer';
 		heading.title = "Open logs on FMLIST"; // Tooltip text
 
-		// Display link icon only if rxin is not "NA" or "EU"
-		if (TICKER_REGION !== 'NA' && TICKER_REGION !== 'EU') {
-			// Add the link icon next to the heading (but do not modify the heading text)
+		// Only show the link icon when TICKER_REGION is not NAM, SAM, or ASI
+		if (!['ASI'].includes(TICKER_REGION.toUpperCase())) {
 			const linkIcon = document.createElement('span');
-			linkIcon.innerHTML = '🔗'; // Add a link symbol
+			linkIcon.innerHTML = '🔗';
 			linkIcon.style.cursor = 'pointer';
-			linkIcon.style.marginLeft = '10px'; // Space between the text and the link icon
-			linkIcon.title = "Open reverse direction on FMLIST"; // Tooltip text
+			linkIcon.style.marginLeft = '10px';
+			linkIcon.title = "Open ES reverse-log map on FMLIST";
+
 			heading.appendChild(linkIcon);
 			heading.style.marginLeft = '40px';
 
-			// Make the link icon clickable to open the logmap with replaced 'target=ALL'
 			linkIcon.addEventListener('click', (event) => {
-				event.stopPropagation(); // Prevent the heading click from also firing
+				event.stopPropagation();
 
-				// Construct the dynamic URL with the current country
-				const dynamicUrl = SOURCE_URL
-					.replace(/target=ALL/, `target=${rxin}`)  // Replacing target with rxin
-					.replace(/rxin=[A-Za-z]+/, `rxin=ALL`); // Replacing rxin with ALL
-					// .replace(/rxin=[A-Za-z]+/, `rxin=${countryDisplay}`); // Replacing rxin with current country
+				// map region codes to human‐readable names
+				const code = TICKER_REGION.toUpperCase();
+				let rxinParam;
+				if (code === 'EUR') {
+					rxinParam = 'Europe';
+				} else if (code === 'NAM' || code === 'SAM') {
+					rxinParam = 'America';
+				} else {
+					rxinParam = encodeURIComponent(code);
+				}
 
-				window.open(dynamicUrl, '_blank');
+				const url = `https://www.fmlist.org/fm_logmap.php?hours=${TICKER_SECONDS}` + `&band=Es&omid=all&target=ALL&rxin=${rxinParam}`;
+				window.open(url, '_blank');
 			});
 		}
 
-		// Make the heading clickable to open the original source_url (without modification)
+		// Heading click still opens the original feed
 		heading.addEventListener('click', () => {
 			window.open(SOURCE_URL, '_blank');
 		});
-
 		// Add hover effect for underlining only on heading (not on linkIcon)
 		heading.classList.add('ticker-heading'); // Add class for styling
 
@@ -482,42 +482,93 @@ function openAzimuthMap() {
 
     }
 
+/* ==== loadTickerFeed ==== */
+/**
+ * Fetches the ES-Ticker feed (via CORS proxy or test URL),
+ * filters entries by continent or by receiver country (extracted
+ * from the "[XYZ]" in rxInfoRaw), applies the autologged setting,
+ * and only keeps entries within the configured time window.
+ */
 async function loadTickerFeed() {
+  const CONTINENTS = ['EUR', 'NAM', 'SAM', 'AUS', 'ASI'];
+
   try {
-    const res = await fetch(CORS_PROXY_URL + SOURCE_URL + `&cb=${Date.now()}&domain=${domain}`);
-    const textBuf = await res.arrayBuffer();
-    const text = new TextDecoder('windows-1252').decode(textBuf);
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    const rows = Array.from(doc.querySelectorAll('tr[valign="top"]')).reverse();
-    nextEntries = rows.map(row => {
-      const tds = row.querySelectorAll('td');
-      const timeRaw = tds[1]?.textContent.trim().padStart(4,'0') || '0000';
-      const hours = +timeRaw.slice(0,2), mins = +timeRaw.slice(2);
-      const utcDate = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), hours, mins));
-      const ageMin = Math.floor((Date.now() - utcDate) / 60000);
-      if (ageMin > LAST_TICKER_MINUTES) return null;
-      const timeDisplay = USE_LOCAL_TIME
-        ? utcDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-        : `${timeRaw.slice(0,2)}:${timeRaw.slice(2)} UTC`;
-      const freq = tds[3]?.textContent.trim();
-      const country = tds[4]?.textContent.trim() || ''; // Set country to an empty string if no country found
-      const senderRaw = tds[5]?.textContent.trim();
-      const rxInfoRaw = tds[8]?.textContent.trim() || '';
-      if (!freq || !senderRaw || !rxInfoRaw) return null;
-      const senderClean = senderRaw.replace(/\s*\([^()]*\)/g,'').trim();
-      const ageText = ageMin===0 ? '(just now)' : `(${ageMin} min ago)`;
-      return { freq, senderClean, country, rxInfoRaw, timeDisplay, ageText };
-    }).filter(Boolean).slice(0, NUMBER_TICKER_LOGS);
-  } catch(err) { 
-    console.error('Ticker load error:', err); 
+    let text, res;
+
+    // 1) Fetch from test URL if provided, otherwise live via CORS proxy
+    if (TICKER_TEST_URL) {
+      res  = await fetch(`${TICKER_TEST_URL}?cb=${Date.now()}`);
+      text = await res.text();
+    } else {
+      res  = await fetch(
+        `${CORS_PROXY_URL}${ESTICKER_URL}` +
+        `?cb=${Date.now()}` +
+        `&domain=${encodeURIComponent(window.location.host)}`
+      );
+      text = await res.text();
+    }
+
+    // 2) Split into lines and parse each line into fields
+    const lines = text.trim().split('\n');
+    nextEntries = lines
+      .map(line => line.split('|'))
+      .filter(fields => fields.length >= 9)  // need at least 9 columns
+
+      // a) Filter by continent code (fields[3]) or by receiver country code
+      .filter(fields => {
+        const broadcastContinent = fields[3].toUpperCase();
+        // Extract the 3-letter receiver country from the "[XYZ]" at end of rxInfoRaw
+        const rxInfo       = fields[5];
+        const match        = rxInfo.match(/\[([A-Za-z]{3})\]$/);
+        const receiverCode = match ? match[1].toUpperCase() : '';
+        if (CONTINENTS.includes(TICKER_REGION)) {
+          return broadcastContinent === TICKER_REGION;
+        } else {
+          return receiverCode === TICKER_REGION;
+        }
+      })
+
+      // b) Filter out “autologged” entries if AUTOLOGGED_ENTRIES is false
+      .filter(fields => {
+        const flagField = (fields[fields.length - 2] || '').trim().toLowerCase();
+        const isAuto    = flagField === 'autologged';
+        return AUTOLOGGED_ENTRIES || !isAuto;
+      })
+
+      // c) Time-age filter: only keep entries no older than TICKER_MINUTES
+      .filter(fields => {
+        const [ y, m, d ] = fields[6].split('-').map(Number);
+        const hh = +fields[7].slice(0,2), mm = +fields[7].slice(2);
+        const entryTime = Date.UTC(y, m-1, d, hh, mm);
+        const ageMin    = (Date.now() - entryTime) / 60000;
+        return ageMin <= TICKER_MINUTES;
+      })
+
+      // d) Map to entry objects
+      .map(fields => {
+        const [ freq, program, city, continent, country, rxInfoRaw, dateStr, timeStr ] = fields;
+        // parse timestamp again for display/age
+        const [ y, m, d ] = dateStr.split('-').map(Number);
+        const hh = +timeStr.slice(0,2), mm = +timeStr.slice(2);
+        const entryDate = new Date(Date.UTC(y, m-1, d, hh, mm));
+        const ageMin    = Math.floor((Date.now() - entryDate) / 60000);
+        const timeDisplay = USE_LOCAL_TIME
+          ? entryDate.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+          : `${timeStr.slice(0,2)}:${timeStr.slice(2)} UTC`;
+        const ageText = ageMin === 0 ? '(just now)' : `(${ageMin} min ago)`;
+        return { freq, program, city, continent, country, rxInfoRaw, timeDisplay, ageText };
+      })
+
+      // e) Limit to the configured number of logs
+      .slice(0, NUMBER_TICKER_LOGS);
+
+  } catch (err) {
+    console.error('Ticker load error:', err);
     nextEntries = [];
   }
 }
 
-/**
- * Renders one ticker entry: flag, frequency link, and metadata,
- * then advances the index for the next rotation.
- */
+/* ==== rotateTicker ==== */
 function rotateTicker() {
   if (!tickerEl) return;
   if (!nextEntries.length) {
@@ -528,49 +579,39 @@ function rotateTicker() {
   const entry = nextEntries[tickerIndex % nextEntries.length];
   tickerEl.innerHTML = '';
 
-  const rawCountry = (entry.country || '').trim();
-  const itu        = rawCountry.toUpperCase();
-  const flagCode   = ituToFlag[itu] || 'xx';
-  const flagUrl    = `https://flagcdn.com/24x18/${flagCode}.png`;
-  // console.log('▶️ rotateTicker:', { rawCountry, itu, flagCode, flagUrl });
-
-  // Only show flag if we have a real code
+  // Show flag if available
+  const flagCode = (ituToFlag[entry.country.toUpperCase()] || 'xx');
   if (flagCode !== 'xx') {
-    const flag = document.createElement('img');
-    flag.src           = flagUrl;
-    flag.alt           = rawCountry;
-    flag.width         = 16;
-    flag.height        = 12;
-    flag.style.cssText = 'position:relative; top:-0.1px; margin-right:0.3em;';
-    flag.addEventListener('error', () => {
-      console.error('🚫 Flag load error, removing img:', flagUrl);
-      flag.remove();
-    });
-    tickerEl.appendChild(flag);
+    const img = document.createElement('img');
+    img.src    = `https://flagcdn.com/24x18/${flagCode}.png`;
+    img.alt    = entry.country;
+    img.width  = 16;
+    img.height = 12;
+    img.style.cssText = 'position:relative; top:-0.1px; margin-right:0.3em;';
+    tickerEl.appendChild(img);
   }
 
-  // Frequency link
-  const freqSpan = document.createElement('span');
-  freqSpan.textContent  = `${entry.freq} MHz`;
-  freqSpan.classList.add('es-frequency-link');
-  freqSpan.title        = 'Tune to frequency';
-  freqSpan.style.cursor = 'pointer';
-  freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
-  tickerEl.appendChild(freqSpan);
+   // Frequency link
+   const freqSpan = document.createElement('span');
+   const freqFormatted = parseFloat(entry.freq).toFixed(2);
+   freqSpan.textContent  = `${freqFormatted} MHz`;
+   freqSpan.classList.add('es-frequency-link');
+   freqSpan.title        = 'Click to tune';
+   freqSpan.style.cursor = 'pointer';
+   freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
+   tickerEl.appendChild(freqSpan);
 
-  // Sender and country
-  countryDisplay = rawCountry || 'ALL';
+  // Program, city, continent, receiver info
   tickerEl.appendChild(
-    document.createTextNode(` | ${entry.senderClean} [${rawCountry}] `)
+    document.createTextNode(
+      ` | ${entry.program} — ${entry.city} [${entry.country}] `
+    )
   );
 
-  // Time, Rx info, age
+  // Time and age
   const small = document.createElement('span');
   small.style.cssText = 'font-size:0.8rem;color:grey;';
-  small.textContent  =
-    `${entry.rxInfoRaw.replace(/[()]/g, m => m === '(' ? '[' : ']')} | ` +
-    `${entry.timeDisplay} ${entry.ageText}`;
-
+  small.textContent = `${entry.rxInfoRaw}  | ${entry.timeDisplay} ${entry.ageText}`;
   tickerEl.appendChild(document.createElement('br'));
   tickerEl.appendChild(small);
 
