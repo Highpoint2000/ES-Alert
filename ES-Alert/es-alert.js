@@ -500,11 +500,11 @@ async function loadTickerFeed() {
       res  = await fetch(`${TICKER_TEST_URL}?cb=${Date.now()}`);
       text = await res.text();
     } else {
-      res  = await fetch(
-        `${CORS_PROXY_URL}${ESTICKER_URL}` +
-        `?cb=${Date.now()}` +
-        `&domain=${encodeURIComponent(window.location.host)}`
-      );
+		res = await fetch(
+			`${CORS_PROXY_URL}${ESTICKER_URL}` +
+			`?cb=${Date.now()}` +
+			`&domain=${window.location.host}`
+		);
       text = await res.text();
     }
 
