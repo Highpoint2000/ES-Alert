@@ -10,14 +10,14 @@
   ////////////////////////////////////////////////////////
 
   /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '8032';	// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
   const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
   const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
   const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
     
   /* ==== ES Ticker Options ================================================= */
-  const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 5, maximum is 15)
-  const NUMBER_TICKER_LOGS 		= 15;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5, maximum is 15)
+  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
   const TICKER_REGION 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...)
   const AUTOLOGGED_ENTRIES		= true;		// displays autologged entries 
