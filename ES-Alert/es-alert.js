@@ -10,14 +10,14 @@
   ////////////////////////////////////////////////////////
 
   /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '';		// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '8032';	// Enter the valid FMLIST OMID here, e.g. '1234'
   const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
   const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
   const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
     
   /* ==== ES Ticker Options ================================================= */
-  const LAST_TICKER_MINUTES 	= 5;		// Minutes to show last ticker logs (default is 5, maximum is 15)
-  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 5, maximum is 15)
+  const NUMBER_TICKER_LOGS 		= 15;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
   const TICKER_REGION 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...)
   const AUTOLOGGED_ENTRIES		= true;		// displays autologged entries 
@@ -103,93 +103,100 @@
   
   // Function for update notification in /setup
 function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
-	
-    if (setupOnly && window.location.pathname !== '/setup') return;
-    let pluginVersionCheck = typeof pluginVersion !== 'undefined' ? pluginVersion : typeof plugin_version !== 'undefined' ? plugin_version : typeof PLUGIN_VERSION !== 'undefined' ? PLUGIN_VERSION : 'Unknown';
+  if (setupOnly && window.location.pathname !== '/setup') return;
+  const pluginVersionCheck =
+    typeof pluginVersion !== 'undefined'
+      ? pluginVersion
+      : typeof PLUGIN_VERSION !== 'undefined'
+        ? PLUGIN_VERSION
+        : 'Unknown';
 
-    // Function to check for updates
-    async function fetchFirstLine() {
-        const urlCheckForUpdate = urlFetchLink;
+  // Neue fetchFirstLine-Version:
+  async function fetchFirstLine() {
+    try {
+      const response = await fetch(urlFetchLink);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const text = await response.text();
 
-        try {
-            const response = await fetch(urlCheckForUpdate);
-            if (!response.ok) {
-                throw new Error(`[${pluginName}] update check HTTP error! status: ${response.status}`);
-            }
+      // 1) const PLUGIN_VERSION = '2.1'
+      let match = text.match(
+        /const\s+PLUGIN_VERSION\s*=\s*['"]([^'"]+)['"]/i
+      );
 
-            const text = await response.text();
-            const lines = text.split('\n');
+      // 2) const pluginVersion = "2.1"
+      if (!match) {
+        match = text.match(
+          /const\s+pluginVersion\s*=\s*['"]([^'"]+)['"]/i
+        );
+      }
 
-            let version;
+      // 3) const plugin_version = '2.1'
+      if (!match) {
+        match = text.match(
+          /const\s+plugin_version\s*=\s*['"]([^'"]+)['"]/i
+        );
+      }
 
-            if (lines.length > 2) {
-				const versionLine = lines.find(line =>
-					/const\s+PLUGIN_VERSION\s*=\s*['"]/.test(line)
-				);
-				if (versionLine) {
-					const match = versionLine.match(
-						/const\s+PLUGIN_VERSION\s*=\s*['"]([^'"]+)['"]/
-					);
-					if (match) version = match[1];
-				}
-			}
+      if (match) {
+        return match[1];
+      }
 
-            if (!version) {
-                const firstLine = lines[0].trim();
-                version = /^\d/.test(firstLine) ? firstLine : "Unknown"; // Check if first character is a number
-            }
+      // Fallback: erste Zeile prüfen
+      const firstLine = text.split('\n')[0].trim();
+      return /^\d/.test(firstLine) ? firstLine : "Unknown";
+    } catch (error) {
+      console.error(`[${pluginName}] error fetching file:`, error);
+      return null;
+    }
+  }
 
-            return version;
-        } catch (error) {
-            console.error(`[${pluginName}] error fetching file:`, error);
-            return null;
-        }
+  // Check for updates
+  fetchFirstLine().then(newVersion => {
+    if (newVersion && newVersion !== pluginVersionCheck) {
+      console.log(`[${pluginName}] There is a new version available: ${pluginVersionCheck} → ${newVersion}`);
+      setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink);
+    }
+  });
+
+  function setupNotify(current, remote, pluginName, urlUpdateLink) {
+    if (window.location.pathname !== '/setup') return;
+    const pluginSettings = document.getElementById('plugin-settings');
+    if (!pluginSettings) return;
+
+    const linkHTML = `<a href="${urlUpdateLink}" target="_blank">[${pluginName}] Update available: ${current} → ${remote}</a><br>`;
+    if (pluginSettings.textContent.trim() === 'No plugin settings are available.') {
+      pluginSettings.innerHTML = linkHTML;
+    } else {
+      pluginSettings.innerHTML += ' ' + linkHTML;
     }
 
-    // Check for updates
-    fetchFirstLine().then(newVersion => {
-        if (newVersion) {
-            if (newVersion !== pluginVersionCheck) {
-                let updateConsoleText = "There is a new version of this plugin available";
-                // Any custom code here
-                
-                console.log(`[${pluginName}] ${updateConsoleText}`);
-                setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink);
-            }
-        }
-    });
+    // roter Punkt im Menü
+    const updateIcon =
+      document.querySelector('.wrapper-outer #navigation .sidenav-content .fa-puzzle-piece')
+      || document.querySelector('.wrapper-outer .sidenav-content')
+      || document.querySelector('.sidenav-content');
 
-    function setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink) {
-        if (window.location.pathname === '/setup') {
-          const pluginSettings = document.getElementById('plugin-settings');
-          if (pluginSettings) {
-            const currentText = pluginSettings.textContent.trim();
-            const newText = `<a href="${urlUpdateLink}" target="_blank">[${pluginName}] Update available: ${pluginVersionCheck} --> ${newVersion}</a><br>`;
-
-            if (currentText === 'No plugin settings are available.') {
-              pluginSettings.innerHTML = newText;
-            } else {
-              pluginSettings.innerHTML += ' ' + newText;
-            }
-          }
-
-          const updateIcon = document.querySelector('.wrapper-outer #navigation .sidenav-content .fa-puzzle-piece') || document.querySelector('.wrapper-outer .sidenav-content') || document.querySelector('.sidenav-content');
-
-          const redDot = document.createElement('span');
-          redDot.style.display = 'block';
-          redDot.style.width = '12px';
-          redDot.style.height = '12px';
-          redDot.style.borderRadius = '50%';
-          redDot.style.backgroundColor = '#FE0830' || 'var(--color-main-bright)'; // Theme colour set here as placeholder only
-          redDot.style.marginLeft = '82px';
-          redDot.style.marginTop = '-12px';
-
-          updateIcon.appendChild(redDot);
-        }
+    if (updateIcon) {
+      const redDot = document.createElement('span');
+      redDot.style.cssText = `
+        display:block;
+        width:12px;
+        height:12px;
+        border-radius:50%;
+        background-color:#FE0830;
+        margin-left:82px;
+        margin-top:-12px;
+      `;
+      updateIcon.appendChild(redDot);
     }
+  }
 }
 
-if (CHECK_FOR_UPDATES) checkUpdate(pluginSetupOnlyNotify, pluginName, pluginHomepageUrl, pluginUpdateUrl);
+if (CHECK_FOR_UPDATES) {
+  checkUpdate(pluginSetupOnlyNotify, pluginName, pluginHomepageUrl, pluginUpdateUrl);
+}
 
   /* =================================================================== *
    *  Admin / tune mode detection                                        *
