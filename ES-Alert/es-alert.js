@@ -1,9 +1,9 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.0)      ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.1)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 15.05.2025   ///
+  ///  by Highpoint           last update 06.06.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
@@ -24,7 +24,8 @@
 
   /* ==== Global Options ================================================= */
   const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
-
+  const pluginSetupOnlyNotify 	= true;		
+  const CHECK_FOR_UPDATES 		= true;
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   const MAX_TICKER_MINUTES    	= 15;
@@ -32,8 +33,13 @@
   const TICKER_SECONDS 			= TICKER_MINUTES * 60;
 
   /* ==== Global variables  ================================================= */
-  const PLUGIN_VERSION     		= '2.0'
-  const PLUGIN_PATH        		= 'https://raw.githubusercontent.com/highpoint2000/ES-Alert/';
+  // Define local version and Github settings
+
+  const pluginVersion 			= "2.1";
+  const pluginName 				= "ES-Alert";
+  const pluginHomepageUrl 		= "https://github.com/Highpoint2000/ES-Alert/releases";
+  const pluginUpdateUrl 		= "https://raw.githubusercontent.com/Highpoint2000/ES-Alert/main/ES-Alert/es-alert.js";
+   
   const API_URL            		= 'https://fmdx.org/includes/tools/get_muf.php';
   const TICKER_TEST_URL	   		= '';
   const ESTICKER_URL       		= 'https://www.fmlist.org/esticker.php';
@@ -90,6 +96,100 @@
     NA: 'north_america',
     AU: 'australia'
   };
+  
+  /* =================================================================== *
+   *  Update Info                                                        *
+   * =================================================================== */
+  
+  // Function for update notification in /setup
+function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
+	
+    if (setupOnly && window.location.pathname !== '/setup') return;
+    let pluginVersionCheck = typeof pluginVersion !== 'undefined' ? pluginVersion : typeof plugin_version !== 'undefined' ? plugin_version : typeof PLUGIN_VERSION !== 'undefined' ? PLUGIN_VERSION : 'Unknown';
+
+    // Function to check for updates
+    async function fetchFirstLine() {
+        const urlCheckForUpdate = urlFetchLink;
+
+        try {
+            const response = await fetch(urlCheckForUpdate);
+            if (!response.ok) {
+                throw new Error(`[${pluginName}] update check HTTP error! status: ${response.status}`);
+            }
+
+            const text = await response.text();
+            const lines = text.split('\n');
+
+            let version;
+
+            if (lines.length > 2) {
+				const versionLine = lines.find(line =>
+					/const\s+PLUGIN_VERSION\s*=\s*['"]/.test(line)
+				);
+				if (versionLine) {
+					const match = versionLine.match(
+						/const\s+PLUGIN_VERSION\s*=\s*['"]([^'"]+)['"]/
+					);
+					if (match) version = match[1];
+				}
+			}
+
+            if (!version) {
+                const firstLine = lines[0].trim();
+                version = /^\d/.test(firstLine) ? firstLine : "Unknown"; // Check if first character is a number
+            }
+
+            return version;
+        } catch (error) {
+            console.error(`[${pluginName}] error fetching file:`, error);
+            return null;
+        }
+    }
+
+    // Check for updates
+    fetchFirstLine().then(newVersion => {
+        if (newVersion) {
+            if (newVersion !== pluginVersionCheck) {
+                let updateConsoleText = "There is a new version of this plugin available";
+                // Any custom code here
+                
+                console.log(`[${pluginName}] ${updateConsoleText}`);
+                setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink);
+            }
+        }
+    });
+
+    function setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink) {
+        if (window.location.pathname === '/setup') {
+          const pluginSettings = document.getElementById('plugin-settings');
+          if (pluginSettings) {
+            const currentText = pluginSettings.textContent.trim();
+            const newText = `<a href="${urlUpdateLink}" target="_blank">[${pluginName}] Update available: ${pluginVersionCheck} --> ${newVersion}</a><br>`;
+
+            if (currentText === 'No plugin settings are available.') {
+              pluginSettings.innerHTML = newText;
+            } else {
+              pluginSettings.innerHTML += ' ' + newText;
+            }
+          }
+
+          const updateIcon = document.querySelector('.wrapper-outer #navigation .sidenav-content .fa-puzzle-piece') || document.querySelector('.wrapper-outer .sidenav-content') || document.querySelector('.sidenav-content');
+
+          const redDot = document.createElement('span');
+          redDot.style.display = 'block';
+          redDot.style.width = '12px';
+          redDot.style.height = '12px';
+          redDot.style.borderRadius = '50%';
+          redDot.style.backgroundColor = '#FE0830' || 'var(--color-main-bright)'; // Theme colour set here as placeholder only
+          redDot.style.marginLeft = '82px';
+          redDot.style.marginTop = '-12px';
+
+          updateIcon.appendChild(redDot);
+        }
+    }
+}
+
+if (CHECK_FOR_UPDATES) checkUpdate(pluginSetupOnlyNotify, pluginName, pluginHomepageUrl, pluginUpdateUrl);
 
   /* =================================================================== *
    *  Admin / tune mode detection                                        *
@@ -102,47 +202,6 @@
     isAuthenticated = isAdminLoggedIn || isTuneLoggedIn;
   }
   checkAdminMode();
-
-  /* =================================================================== *
-   *  Version check (admins only)                                        *
-   * =================================================================== */
-  function shouldShowUpdateToast() {
-    const last = +localStorage.getItem(UPDATE_KEY) || 0;
-    if (Date.now() - last > 86_400_000) {
-      localStorage.setItem(UPDATE_KEY, Date.now());
-      return true;
-    }
-    return false;
-  }
-  function compareVersions(a, b) {
-    const p = v => v.split(/(\d+|[a-z]+)/i).filter(Boolean)
-                    .map(x => (isNaN(x) ? x : +x));
-    const A = p(a), B = p(b);
-    for (let i = 0; i < Math.max(A.length, B.length); i++) {
-      const x = A[i] ?? 0, y = B[i] ?? 0;
-      if (x === y) continue;
-      if (typeof x === 'number' && typeof y === 'number') return x > y ? 1 : -1;
-      if (typeof x === 'string' && typeof y === 'string') return x > y ? 1 : -1;
-      return typeof x === 'number' ? -1 : 1;
-    }
-    return 0;
-  }
-  function checkPluginVersion() {
-    if (!isAuthenticated) return;
-    fetch(`${PLUGIN_PATH}${PLUGIN_JS_FILE}`)
-      .then(r => r.text())
-      .then(t => {
-        const m = t.match(/const\s+PLUGIN_VERSION\s*=\s*'([\d.]+[a-z]*)?'/i);
-        if (!m) return;
-        const remote = m[1] || '0';
-        if (compareVersions(PLUGIN_VERSION, remote) === -1 && shouldShowUpdateToast()) {
-          sendToast('warning', PLUGIN_NAME,
-            `Update available:<br>${PLUGIN_VERSION} → ${remote}`, false, false);
-        }
-      })
-      .catch(e => console.error(`${PLUGIN_NAME}: version check failed`, e));
-  }
-  setTimeout(checkPluginVersion, 2500);
 
   /* ==== Helpers ======================================================= */
   function startAlertTimer() {
@@ -331,7 +390,7 @@ function openAzimuthMap() {
       if (typeof addIconToPluginPanel === 'function') {
         obs.disconnect();
         addIconToPluginPanel(id, 'ES Alert', 'solid', 'bell',
-          `Plugin Version: ${PLUGIN_VERSION}`);
+          `Plugin Version: ${pluginVersion}`);
         const btnObs = new MutationObserver(() => {
           const $btn = $(`#${id}`);
           if (!$btn.length) return;
@@ -519,8 +578,8 @@ async function loadTickerFeed() {
         const broadcastContinent = fields[3].toUpperCase();
         // Extract the 3-letter receiver country from the "[XYZ]" at end of rxInfoRaw
         const rxInfo       = fields[5];
-        const match        = rxInfo.match(/\[([A-Za-z]{3})\]$/);
-        const receiverCode = match ? match[1].toUpperCase() : '';
+		const match = rxInfo.match(/\[([A-Za-z]{1,3})\]$/);
+		const receiverCode = match ? match[1].toUpperCase() : '';
         if (CONTINENTS.includes(TICKER_REGION)) {
           return broadcastContinent === TICKER_REGION;
         } else {
