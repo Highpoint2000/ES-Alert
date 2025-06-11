@@ -34,7 +34,7 @@ The following variables can be changed in the header of the es-alert.js:
     const LAST_TICKER_MINUTES   = 5;		// Minutes to show last ticker logs (default is 5, maximum is 15)
     const NUMBER_TICKER_LOGS    = 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
     const TICKER_ROTATE_SECONDS = 5;		// Rotate every X seconds
-    const TICKER_REGIONS        = 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
+    const TICKER_REGIONS        = 'EUR'; 	    // 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
     const AUTOLOGGED_ENTRIES    = true;		// displays autologged entries 
     
     /* ==== Global Options ================================================= */
