@@ -1,16 +1,16 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.1)      ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.2)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 06.06.2025   ///
+  ///  by Highpoint           last update 11.06.2025   ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
   /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '8032';	// Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '';	    // Enter the valid FMLIST OMID here, e.g. '1234'
   const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
   const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
   const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
@@ -19,7 +19,7 @@
   const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 5, maximum is 15)
   const NUMBER_TICKER_LOGS 		= 15;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
-  const TICKER_REGION 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...)
+  const TICKER_REGIONS 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
   const AUTOLOGGED_ENTRIES		= true;		// displays autologged entries 
 
   /* ==== Global Options ================================================= */
@@ -35,7 +35,7 @@
   /* ==== Global variables  ================================================= */
   // Define local version and Github settings
 
-  const pluginVersion 			= "2.1";
+  const pluginVersion 			= "2.2";
   const pluginName 				= "ES-Alert";
   const pluginHomepageUrl 		= "https://github.com/Highpoint2000/ES-Alert/releases";
   const pluginUpdateUrl 		= "https://raw.githubusercontent.com/Highpoint2000/ES-Alert/main/ES-Alert/es-alert.js";
@@ -90,6 +90,10 @@
   let isAuthenticated    = false;
   let azimuthMapWindow   = null;
   const domain = window.location.host; 
+    
+  const TICKER_REGIONS_LIST = TICKER_REGIONS
+  .split(',')
+  .map(r => r.trim().toUpperCase());
 
   const REGION_KEYS = {
     EU: 'europe',
@@ -491,12 +495,12 @@ function openAzimuthMap() {
 		const heading = document.createElement('h3');
 		heading.id = 'esAlertTickerHeading';
 		heading.setAttribute('style', 'margin: 0; padding: 0; text-align: right;');
-		heading.textContent = `ES Ticker ${TICKER_REGION} (Last ${TICKER_MINUTES} Minutes)`;
+		heading.textContent = `ES Ticker ${TICKER_REGIONS_LIST.join(',')} (Last ${TICKER_MINUTES} Minutes)`;
 		heading.style.cursor = 'pointer';
 		heading.title = "Open logs on FMLIST"; // Tooltip text
 
 		// Only show the link icon when TICKER_REGION is not NAM, SAM, or ASI
-		if (!['ASI'].includes(TICKER_REGION.toUpperCase())) {
+		if (!['ASI'].includes(TICKER_REGIONS.toUpperCase())) {
 			const linkIcon = document.createElement('span');
 			linkIcon.innerHTML = '🔗';
 			linkIcon.style.cursor = 'pointer';
@@ -510,7 +514,7 @@ function openAzimuthMap() {
 				event.stopPropagation();
 
 				// map region codes to human‐readable names
-				const code = TICKER_REGION.toUpperCase();
+				const code = TICKER_REGIONS.toUpperCase();
 				let rxinParam;
 				if (code === 'EUR') {
 					rxinParam = 'Europe';
@@ -580,19 +584,20 @@ async function loadTickerFeed() {
       .map(line => line.split('|'))
       .filter(fields => fields.length >= 9)  // need at least 9 columns
 
-      // a) Filter by continent code (fields[3]) or by receiver country code
-      .filter(fields => {
-        const broadcastContinent = fields[3].toUpperCase();
-        // Extract the 3-letter receiver country from the "[XYZ]" at end of rxInfoRaw
-        const rxInfo       = fields[5];
-		const match = rxInfo.match(/\[([A-Za-z]{1,3})\]$/);
+     // a) Filter by continent code (fields[3]) or by receiver country code
+	 .filter(fields => {
+		const broadcastContinent = fields[3].toUpperCase();
+		const match = fields[5].match(/\[([A-Za-z]{1,3})\]$/);
 		const receiverCode = match ? match[1].toUpperCase() : '';
-        if (CONTINENTS.includes(TICKER_REGION)) {
-          return broadcastContinent === TICKER_REGION;
-        } else {
-          return receiverCode === TICKER_REGION;
-        }
-      })
+
+		return TICKER_REGIONS_LIST.some(reg => {
+			if (CONTINENTS.includes(reg)) {
+				return broadcastContinent === reg;
+			} else {
+				return receiverCode === reg;
+			}
+		});
+	  })
 
       // b) Filter out “autologged” entries if AUTOLOGGED_ENTRIES is false
       .filter(fields => {
@@ -634,53 +639,88 @@ async function loadTickerFeed() {
   }
 }
 
+// Helper: fetch & cache a flag PNG as a data-URL
+async function getFlagDataUrl(flagCode) {
+  const storageKey = `flag_${flagCode}`;
+  const cached = localStorage.getItem(storageKey);
+  if (cached) return cached;
+
+  // First time: fetch from the CDN
+  const resp = await fetch(`https://flagcdn.com/24x18/${flagCode}.png`);
+  if (!resp.ok) throw new Error(`Flag fetch failed: ${resp.status}`);
+  const blob = await resp.blob();
+
+  // Convert to data-URL
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      try {
+        localStorage.setItem(storageKey, dataUrl);
+      } catch (e) {
+        console.warn('Could not cache flag (quota exceeded)', e);
+      }
+      resolve(dataUrl);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
 /* ==== rotateTicker ==== */
-function rotateTicker() {
+async function rotateTicker() {
   if (!tickerEl) return;
+
+  // No entries yet
   if (!nextEntries.length) {
     tickerEl.textContent = 'No log entries available.';
     return;
   }
 
+  // Pick the next entry
   const entry = nextEntries[tickerIndex % nextEntries.length];
   tickerEl.innerHTML = '';
 
-  // Show flag if available
+  // 1) Flag image (cached)
   const flagCode = (ituToFlag[entry.country.toUpperCase()] || 'xx');
   if (flagCode !== 'xx') {
     const img = document.createElement('img');
-    img.src    = `https://flagcdn.com/24x18/${flagCode}.png`;
-    img.alt    = entry.country;
-    img.width  = 16;
+    img.width = 16;
     img.height = 12;
     img.style.cssText = 'position:relative; top:-0.1px; margin-right:0.3em;';
+
+    try {
+      img.src = await getFlagDataUrl(flagCode);
+    } catch {
+      // Fallback if caching or fetch fails
+      img.src = `https://flagcdn.com/24x18/${flagCode}.png`;
+    }
+
     tickerEl.appendChild(img);
   }
 
-   // Frequency link
-   const freqSpan = document.createElement('span');
-   const freqFormatted = parseFloat(entry.freq).toFixed(2);
-   freqSpan.textContent  = `${freqFormatted} MHz`;
-   freqSpan.classList.add('es-frequency-link');
-   freqSpan.title        = 'Click to tune';
-   freqSpan.style.cursor = 'pointer';
-   freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
-   tickerEl.appendChild(freqSpan);
+  // 2) Frequency link
+  const freqSpan = document.createElement('span');
+  const freqFormatted = parseFloat(entry.freq).toFixed(2);
+  freqSpan.textContent = `${freqFormatted} MHz`;
+  freqSpan.classList.add('es-frequency-link');
+  freqSpan.title = 'Click to tune';
+  freqSpan.style.cursor = 'pointer';
+  freqSpan.addEventListener('click', e => sendFrequency(entry.freq, e));
+  tickerEl.appendChild(freqSpan);
 
-  // Program, city, continent, receiver info
+  // 3) Program, city, country
   tickerEl.appendChild(
-    document.createTextNode(
-      ` | ${entry.program} — ${entry.city} [${entry.country}] `
-    )
+    document.createTextNode(` | ${entry.program} — ${entry.city} [${entry.country}] `)
   );
 
-  // Time and age
+  // 4) Time & age
   const small = document.createElement('span');
   small.style.cssText = 'font-size:0.8rem;color:grey;';
   small.textContent = `${entry.rxInfoRaw}  | ${entry.timeDisplay} ${entry.ageText}`;
   tickerEl.appendChild(document.createElement('br'));
   tickerEl.appendChild(small);
 
+  // Advance index
   tickerIndex++;
 }
  
