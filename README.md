@@ -9,7 +9,7 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 
 ## Version 2.2 
 
-- Multiple ticker regions are now possible (e.g., 'EUR, NAM' or 'D, SUI, GRC')
+- Multiple ticker regions are now possible (e.g., 'EUR,NAM' or 'D,SUI,GRC')
 - Caching of country flags for faster loading
 
 ## Installation notes:
