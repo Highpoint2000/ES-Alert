@@ -44,6 +44,10 @@ The following variables can be changed in the header of the es-alert.js:
 
 To use the plugin, you need an active FMLIST account. To receive ES alarm notifications via the plugin, you must enable ES email notifications in FMLIST. You must also specify your OMID in the plugin's configuration settings. After activating the plugin as an administrator using the ES alarm button, it checks every minute for notifications for the location. A long press on the ES alarm button after receiving an alarm notification opens the ES direction map. – Additionally, a status indicator for sporadic E (ES) is displayed in the menu bar, which, for ES, shows the MUF value for the region selected in the script header (NA, EU, or AU). Hovering over the indicator informs you when the message was published. The MUF display can be deactivated using a switch in the web server options. By default, the ticker displays the last 5 logs from the last 5 minutes. The logs change every 5 seconds; clicking on them opens the log entry in the FMLIST map. The ticker can be turned on or off in the web server settings. Clicking on the frequency in the ticker log switches to the web server. Clicking on the ticker heading opens the FMLIST ES page.
 
+## Known Bugs:
+
+If multiple regions are selected, the reverse link no longer works because FMLIST only allows one region to be displayed.
+
 ## History:
 
 ### Version 2.1 
