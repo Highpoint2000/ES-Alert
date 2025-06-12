@@ -101,13 +101,15 @@
     AU: 'australia'
   };
   
-  /* =================================================================== *
-   *  Update Info                                                        *
-   * =================================================================== */
+/* =================================================================== *
+ *  Update Notification                                               *
+ * =================================================================== */
   
-  // Function for update notification in /setup
+// Function to check for plugin updates (only runs on setup page if setupOnly is true)
 function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
   if (setupOnly && window.location.pathname !== '/setup') return;
+
+  // Determine current plugin version from available globals
   const pluginVersionCheck =
     typeof pluginVersion !== 'undefined'
       ? pluginVersion
@@ -115,7 +117,7 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
         ? PLUGIN_VERSION
         : 'Unknown';
 
-  // Neue fetchFirstLine-Version:
+  // New fetchFirstLine version:
   async function fetchFirstLine() {
     try {
       const response = await fetch(urlFetchLink);
@@ -124,19 +126,17 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
       }
       const text = await response.text();
 
-      // 1) const PLUGIN_VERSION = '2.1'
+      // Try to extract version from known patterns
       let match = text.match(
         /const\s+PLUGIN_VERSION\s*=\s*['"]([^'"]+)['"]/i
       );
 
-      // 2) const pluginVersion = "2.1"
       if (!match) {
         match = text.match(
           /const\s+pluginVersion\s*=\s*['"]([^'"]+)['"]/i
         );
       }
 
-      // 3) const plugin_version = '2.1'
       if (!match) {
         match = text.match(
           /const\s+plugin_version\s*=\s*['"]([^'"]+)['"]/i
@@ -147,23 +147,26 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
         return match[1];
       }
 
-      // Fallback: erste Zeile prüfen
+      // Fallback: check first line of file
       const firstLine = text.split('\n')[0].trim();
       return /^\d/.test(firstLine) ? firstLine : "Unknown";
     } catch (error) {
-      console.error(`[${pluginName}] error fetching file:`, error);
+      console.error(`[${pluginName}] Error fetching file:`, error);
       return null;
     }
   }
 
-  // Check for updates
+  // Compare versions and notify if there's an update
   fetchFirstLine().then(newVersion => {
     if (newVersion && newVersion !== pluginVersionCheck) {
-      console.log(`[${pluginName}] There is a new version available: ${pluginVersionCheck} → ${newVersion}`);
+      console.log(
+        `[${pluginName}] There is a new version available: ${pluginVersionCheck} → ${newVersion}`
+      );
       setupNotify(pluginVersionCheck, newVersion, pluginName, urlUpdateLink);
     }
   });
 
+  // Show update link and red dot indicator in the setup UI
   function setupNotify(current, remote, pluginName, urlUpdateLink) {
     if (window.location.pathname !== '/setup') return;
     const pluginSettings = document.getElementById('plugin-settings');
@@ -176,7 +179,7 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
       pluginSettings.innerHTML += ' ' + linkHTML;
     }
 
-    // roter Punkt im Menü
+    // red dot in menu
     const updateIcon =
       document.querySelector('.wrapper-outer #navigation .sidenav-content .fa-puzzle-piece')
       || document.querySelector('.wrapper-outer .sidenav-content')
@@ -185,13 +188,13 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
     if (updateIcon) {
       const redDot = document.createElement('span');
       redDot.style.cssText = `
-        display:block;
-        width:12px;
-        height:12px;
-        border-radius:50%;
-        background-color:#FE0830;
-        margin-left:82px;
-        margin-top:-12px;
+        display: block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #FE0830;
+        margin-left: 82px;
+        margin-top: -12px;
       `;
       updateIcon.appendChild(redDot);
     }
@@ -199,7 +202,12 @@ function checkUpdate(setupOnly, pluginName, urlUpdateLink, urlFetchLink) {
 }
 
 if (CHECK_FOR_UPDATES) {
-  checkUpdate(pluginSetupOnlyNotify, pluginName, pluginHomepageUrl, pluginUpdateUrl);
+  checkUpdate(
+    pluginSetupOnlyNotify,
+    pluginName,
+    pluginHomepageUrl,
+    pluginUpdateUrl
+  );
 }
 
   /* =================================================================== *
