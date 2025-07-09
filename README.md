@@ -35,10 +35,10 @@ The following variables can be changed in the header of the es-alert.js:
     const TICKER_ROTATE_SECONDS = 5;		// Rotate every X seconds
     const TICKER_REGIONS        = 'EUR'; 	        // 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
     const AUTOLOGGED_ENTRIES    = true;		// displays autologged entries 
-    const UPPER_ROW_FONT_SIZE  = "18px";       // e.g. "18px" (default), "16px", "20px" 
-    const UPPER_ROW_COLOR      = "white";      // e.g. "orange", "yellow", "white" (default), "red" or "grey"
-    const LOWER_ROW_FONT_SIZE = "14px";	// e.g. "14px" (default), "12px", "16px"
-    const LOWER_ROW_COLOR 	= "grey";	// e.g. "orange", "yellow", "white", "red" or "grey" (default)
+    const UPPER_ROW_FONT_SIZE   = "18px";       // e.g. "18px" (default), "16px", "20px" 
+    const UPPER_ROW_COLOR       = "white";      // e.g. "orange", "yellow", "white" (default), "red" or "grey"
+    const LOWER_ROW_FONT_SIZE   = "14px";	// e.g. "14px" (default), "12px", "16px"
+    const LOWER_ROW_COLOR       = "grey";	// e.g. "orange", "yellow", "white", "red" or "grey" (default)
     
     /* ==== Global Options ================================================= */
     const USE_LOCAL_TIME        = true; // true = display in local time, false = UTC/GMT
