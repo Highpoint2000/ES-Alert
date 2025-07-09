@@ -7,10 +7,9 @@ This plugin displays toast notifications when ES alarms are triggered for the lo
 ![image](https://github.com/user-attachments/assets/72b6ae0f-7727-48b6-bbea-29c89b7b12f7)
 
 
-## Version 2.2 
+## Version 2.3 
 
-- Multiple ticker regions are now possible (e.g., 'EUR,NAM' or 'D,SUI,GRC')
-- Caching of country flags for faster loading
+- Added variables to set the color and size of the ticker lines
 
 ## Installation notes:
 
@@ -36,6 +35,10 @@ The following variables can be changed in the header of the es-alert.js:
     const TICKER_ROTATE_SECONDS = 5;		// Rotate every X seconds
     const TICKER_REGIONS        = 'EUR'; 	        // 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
     const AUTOLOGGED_ENTRIES    = true;		// displays autologged entries 
+    const UPPER_ROW_FONT_SIZE  	= "18px";   // e.g. "18px" (default), "16px", "20px" 
+    const UPPER_ROW_COLOR      	= "white";  // e.g. "orange", "yellow", "white" (default), "red" or "grey"
+    const LOWER_ROW_FONT_SIZE 	= "14px";	// e.g. "14px" (default), "12px", "16px"
+    const LOWER_ROW_COLOR 		= "grey";	// e.g. "orange", "yellow", "white", "red" or "grey" (default)
     
     /* ==== Global Options ================================================= */
     const USE_LOCAL_TIME        = true; // true = display in local time, false = UTC/GMT
@@ -49,6 +52,11 @@ To use the plugin, you need an active FMLIST account. To receive ES alarm notifi
 If multiple regions are selected, the reverse link no longer works because FMLIST only allows one region to be displayed.
 
 ## History:
+
+### Version 2.2 
+
+- Multiple ticker regions are now possible (e.g., 'EUR,NAM' or 'D,SUI,GRC')
+- Caching of country flags for faster loading
 
 ### Version 2.1 
 

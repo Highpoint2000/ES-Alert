@@ -1,26 +1,30 @@
 (() => {
   ////////////////////////////////////////////////////////
   ///                                                  ///
-  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.2)      ///
+  ///  ES ALERT SCRIPT FOR FM-DX WEBSERVER (V2.3)      ///
   ///                                                  ///
-  ///  by Highpoint           last update 11.06.2025   ///
+  ///  by Highpoint           last update 09.07.25     ///
   ///                                                  ///
   ///  https://github.com/Highpoint2000/ES-Alert       ///
   ///                                                  ///
   ////////////////////////////////////////////////////////
 
   /* ==== ES ALERT & MUF Info Options ================================================= */
-  const OMID               		= '';	    // Enter the valid FMLIST OMID here, e.g. '1234'
+  const OMID               		= '';	// Enter the valid FMLIST OMID here, e.g. '1234'
   const SELECTED_REGION    		= 'EU';		// 'EU', 'NA', or 'AU'
   const LAST_ALERT_MINUTES 		= 15;		// Minutes to look back when page loads (default is 15)
   const PLAY_ALERT_SOUND   		= true;		// true = play sound on new alert
     
   /* ==== ES Ticker Options ================================================= */
   const LAST_TICKER_MINUTES 	= 15;		// Minutes to show last ticker logs (default is 5, maximum is 15)
-  const NUMBER_TICKER_LOGS 		= 15;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
+  const NUMBER_TICKER_LOGS 		= 5;		// Number of ticker logs until repetition (5 is default, 1 is only the latest) 
   const TICKER_ROTATE_SECONDS 	= 5;		// Rotate every X seconds
   const TICKER_REGIONS 			= 'EUR'; 	// 'EUR', 'NAM', 'SAM', 'AUS', 'ASI' or ITU Code of Country (D, SUI, GRC ...) or multiple entries linked 'EUR,NAM' or 'D,SUI,GRC'
   const AUTOLOGGED_ENTRIES		= true;		// displays autologged entries 
+  const UPPER_ROW_FONT_SIZE  	= "18px";   // e.g. "18px" (default), "16px", "20px" 
+  const UPPER_ROW_COLOR      	= "white";  // e.g. "orange", "yellow", "white" (default), "red" or "grey"
+  const LOWER_ROW_FONT_SIZE 	= "14px";	// e.g. "14px" (default), "12px", "16px"
+  const LOWER_ROW_COLOR 		= "grey";	// e.g. "orange", "yellow", "white", "red" or "grey" (default)
 
   /* ==== Global Options ================================================= */
   const USE_LOCAL_TIME     		= true; 	// true = display in local time, false = UTC/GMT
@@ -35,10 +39,10 @@
   /* ==== Global variables  ================================================= */
   // Define local version and Github settings
 
-  const pluginVersion 			= "2.2";
+  const pluginVersion 			= "2.3";
   const pluginName 				= "ES-Alert";
   const pluginHomepageUrl 		= "https://github.com/Highpoint2000/ES-Alert/releases";
-  const pluginUpdateUrl 		= "https://raw.githubusercontent.com/Highpoint2000/ES-Alert/main/ES-Alert/es-alert.js";
+  const pluginUpdateUrl 		= "https://raw.githubusercontent.com/Highpoint2000/ES-Alert/main/ES-Alert/es-alert.js" + "?_=" + Date.now();
    
   const API_URL            		= 'https://fmdx.org/includes/tools/get_muf.php';
   const TICKER_TEST_URL	   		= '';
@@ -549,9 +553,16 @@ function openAzimuthMap() {
 		tickerEl.id = 'esAlertTicker';
 		Object.assign(tickerEl.style, {
 			minHeight: '6ch',
-			fontFamily: 'sans-serif', fontSize: '1rem', color: 'white', background: 'none',
-			border: 'none', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
-			padding: '0.1em', marginBottom: '0.1em'
+			fontFamily: 'sans-serif',
+			fontSize: UPPER_ROW_FONT_SIZE,
+			color: UPPER_ROW_COLOR,
+			background: 'none',
+			border: 'none',
+			textAlign: 'center',
+			whiteSpace: 'nowrap',
+			overflow: 'hidden',
+			padding: '0.1em',
+			marginBottom: '0.1em'
 		});
 		tickerEl.textContent = 'Loading logs…';
 		container.prepend(tickerEl);
@@ -723,7 +734,7 @@ async function rotateTicker() {
 
   // 4) Time & age
   const small = document.createElement('span');
-  small.style.cssText = 'font-size:0.8rem;color:grey;';
+  small.style.cssText = `font-size:${LOWER_ROW_FONT_SIZE}; color:${LOWER_ROW_COLOR};`;
   small.textContent = `${entry.rxInfoRaw}  | ${entry.timeDisplay} ${entry.ageText}`;
   tickerEl.appendChild(document.createElement('br'));
   tickerEl.appendChild(small);
